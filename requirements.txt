@@ -1,0 +1,8 @@
+streamlit
+python-pptx
+Pillow
+requests
+python-docx
+PyMuPDF
+opencv-python-headless
+numpy
