@@ -53,7 +53,7 @@ def get_image_explanation(base64_image):
         "messages": [  
             {"role": "system", "content": "You are a helpful assistant that responds in Markdown."},  
             {"role": "user", "content": [  
-                {"type": "text", "text": "Explain the content of this image in a single, coherent paragraph. The explanation should be concise and semantically meaningful, summarizing all major points from the image in one continuous paragraph. Avoid using bullet points or separate lists."},  
+                {"type": "text", "text": "Explain the content of this image in a single, coherent paragraph. The explanation should be concise and semantically meaningful, summarizing all major points from the image in one paragraph. Avoid using bullet points or separate lists."},  
                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}  
             ]}  
         ],  
@@ -79,8 +79,10 @@ def extract_text_from_ppt(ppt_file):
     for slide_number, slide in enumerate(presentation.slides, start=1):  
         slide_text = []  
         for shape in slide.shapes:  
-            if hasattr(shape, "text"):  
-                slide_text.append(shape.text)  
+            if shape.has_text_frame:  
+                for paragraph in shape.text_frame.paragraphs:  
+                    for run in paragraph.runs:  
+                        slide_text.append(run.text)  
         slide_title = slide.shapes.title.text if slide.shapes.title else "Untitled Slide"  
         text_content.append({"slide_number": slide_number, "slide_title": slide_title, "text": " ".join(slide_text)})  
     return text_content  
@@ -131,11 +133,12 @@ def generate_text_insights(text_content, visual_slides, text_length):
         if len(slide_text.split()) < 20 and slide_number not in visual_slides:  
             continue  # Skip slides with fewer than 20 words and no visual elements  
         prompt = f"""  
-     I want you to immediately begin with one of the following phrases based on the slide title:
-(a) If the slide title contains the keyword "Background," begin your explanation with "the prior solutions includes..." and proceed by discussing the prior solution presented in the slide. After discussing the prior solution, move forward with the remaining explanation for the slide.
-(b) If the slide title contains the keyword "Proposal," start your explanation with "the present disclosure includes..." and proceed by discussing the proposal or invention in the slide. Continue with the remaining explanation.
-(c) If the slide title does not contain either of these keywords, begin your explanation with "Aspects of the present disclosure may include..." and discuss the key aspects presented in the slide before moving forward with the rest of the explanation. 
-The information should be delivered directly and engagingly in a single, coherent paragraph. Avoid phrases like 'The slide presents,' 'discusses,' 'outlines,' or 'content.' The explanation should be concise and semantically meaningful, summarizing all major points in one paragraph without bullet points. The text should adhere to the following style guidelines:  
+        NOTE: If a slide contains less than 30 words and adds no meaningful value, skip generating content and state, "This slide has no quality content." Ensure accurate validation by comparing the slide's content to others, and only dismiss content that lacks quality or relevance.  
+  
+        I want you to immediately begin with one of the following phrases based on the slide title:  
+        (a) If and only if the slide title contains the keyword "Background," begin the explanation with "The prior solutions include..." Proceed by discussing only the prior solution presented in the slide. Ensure no mention of any proposal or disclosure occurs at this stage, and strictly limit the explanation to the prior solutions.  
+        (b) If and only if the slide title contains the keyword "Proposal," start the explanation with "The present disclosure includes..." Focus exclusively on discussing the proposal or invention presented in the slide. Ensure that no background information is referenced, and strictly adhere to the proposal/invention-related content.  
+        (c) If the slide title does not contain either "Background" or "Proposal," start the explanation with "Aspects of the present disclosure include..." Discuss the key aspects of the slide's content, ensuring no mention of prior solutions or proposals. Adhere to the neutral tone, focusing on the core aspects of the slide's content. The information should be delivered directly and engagingly in a single, coherent paragraph. Avoid phrases like 'The slide presents,' 'discusses,' 'outlines,' or 'content.' The explanation should be concise and semantically meaningful, summarizing all major points in one paragraph without bullet points. The text should adhere to the following style guidelines:  
         1. Remove all listed profanity words.  
         2. Use passive voice.  
         3. Use conditional and tentative language, such as "may include," "in some aspects," and "aspects of the present disclosure."  
@@ -179,6 +182,7 @@ The information should be delivered directly and engagingly in a single, coheren
   
 def generate_image_insights(image_content, text_length, api_key, azure_endpoint, model, api_version):  
     insights = []  
+    low_quality_slides = []  
   
     # Set temperature based on text_length  
     if text_length == "Standard":  
@@ -191,7 +195,7 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
     for image_data in image_content:  
         base64_image = encode_image(image_data['image'])  
         slide_number = image_data['slide_number']  
-          
+  
         # Determine how many images are on the slide  
         images_on_slide = [img for img in image_content if img['slide_number'] == slide_number]  
         image_ref = f"figure {slide_number}"  
@@ -204,61 +208,51 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         }  
   
         prompt = f"""  
-
-Start by listing all images present in the slide using the format: 'Referring to {image_ref}(a), {image_ref}(b), etc.' based on the number of images in the slide. If there is only one image, simply use 'Referring to {image_ref},' If there are multiple images, ensure the last reference is separated by 'and,' e.g., '{image_ref}(a) and {image_ref}(b),' for two images. Continue this pattern for slides with more images. After listing the figures, follow the steps below:
-
-Step-1:
-After listing the slide reference, begin immediately after the comma with one of the following phrases based on the slide title. Ensure that the word directly following the comma starts with a lowercase letter. This rule must be followed consistently for all slides.
-(a) If the slide title contains the keyword "Background," begin your explanation with "the prior solutions includes..." and proceed by discussing the prior solution presented in the slide. After discussing the prior solution, move forward with the remaining explanation for the slide.
-(b) If the slide title contains the keyword "Proposal," start your explanation with "the present disclosure includes..." and proceed by discussing the proposal or invention in the slide. Continue with the remaining explanation.
-(c) If the slide title does not contain either of these keywords, begin your explanation with "Aspects of the present disclosure include..." and discuss the key aspects presented in the slide before moving forward with the rest of the explanation.
-
-Step-2:
-Strictly avoid beginning or using phrases like "The slide" during the explanation to maintain a more natural flow.
-
-Step-3:
-Strictly avoid beginning or using phrases like "The text" during the explanation to maintain a more natural flow.
-
-Step-4:
-Strictly avoid beginning or using phrases like "The image" during the explanation to maintain a more natural flow.
-
-Step-5:
-After referencing the figure, always start the following sentence with "In this aspect," and continue with the detailed explanation of the content.
-
-Step-6:
-Start by analyzing the text content of the slide. Reproduce the text as accurately as possible, maintaining the context, and then describe the image. Ensure the explanation smoothly integrates both the text and image content.
-
-Step-7:
-Ensure that all referenced images are clearly explained. After referencing the image (e.g., "Referring to {image_ref}(a)," etc.), provide a detailed explanation for each image in the slide.
-
-Step-8:
-While explaining, ensure that you follow the style guide:
-(a) Remove all listed profanity words.
-(b) Use passive voice consistently throughout the explanation.
-(c) Avoid using the term "consist" or any form of that verb when describing inventions or disclosures.
-(d) Replace "Million" with "1,000,000" and "Billion" with "1,000,000,000."
-(e) Maintain precision, specificity, and formality in tone. The explanation should be complex, objective, and structured systematically.
-(f) Use technical jargon and terminology that is detailed and specific. Maintain an impersonal tone.
-(g) Structure the explanation systematically, and use terms like "defined as," "the first set," "the second set," and "for example."
-(h) Use conditional and tentative language such as "may include," "in some aspects," "aspects of the present disclosure," "wireless communication networks," "by way of example," "may be," "may further include," "may be used," "may occur," and other similar phrases.
-(i) Capture all key wording and phrases accurately. Do not substitute words with synonyms (e.g., maintain "instead" rather than replacing it with "conversely").
-(j) Avoid repeating abbreviations if they have already been defined earlier in the explanation.
-(k) When discussing the current disclosure, use definitive language.
-(l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.
-(m) If the slide or image contains the word "example" or "E.g." ensure it is strictly reproduced exactly as it appears. Apply the same accuracy for all examples present in the image.
-
-Step-9:
-I expect you to provide a clear and consistent explanation based on the image. There's no need to mention the steps you're following, use unnecessary formatting (such as bold text), or include unrelated details, topics, or subtopics in your response. Focus solely on delivering a straightforward, cohesive explanation, without describing your process or referring to the current step. Just provide the explanation—nothing more.
-"""  
-  
+        NOTE: If a slide contains less than 30 words and adds no meaningful value, skip generating content and state, "This slide has no quality content." Ensure accurate validation by comparing the slide’s content to others, and only dismiss content that lacks quality or relevance.  
+        Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, especially when multiple figures are arranged in parallel or adjacent to each other.  
+        Step-1(a): If there is one figure or multiple figures, use the format: "Referring to {image_ref}(1), {image_ref}(2), and to {image_ref}(3)" ensuring that every figure is referenced correctly. Make sure to list and refer to all figures, even if they are positioned in adjacent to one another.  
+        Step-1(b): After listing the figures, accurately describe and reference each one according to its position, ensuring that no figure is skipped.  
+        Finally, follow the steps below:  
+        Step-2: After listing the slide reference, begin immediately after the comma with one of the following phrases based on the slide title. Ensure that the word directly following the comma starts with a lowercase letter. This rule must be followed consistently for all slides.  
+        Step-3: If and only if the slide title contains the keyword "Background," begin the explanation with "The prior solutions include..." Proceed by discussing only the prior solution presented in the slide. Ensure no mention of any proposal or disclosure occurs at this stage, and strictly limit the explanation to the prior solutions.  
+        Step-4: If and only if the slide title contains the keyword "Proposal," start the explanation with "The present disclosure includes..." Focus exclusively on discussing the proposal or invention presented in the slide. Ensure that no background information is referenced, and strictly adhere to the proposal/invention-related content.  
+        Step-5: If the slide title does not contain either "Background" or "Proposal," start the explanation with "Aspects of the present disclosure include..." Discuss the key aspects of the slide's content, ensuring no mention of prior solutions or proposals. Adhere to the neutral tone, focusing on the core aspects of the slide's content. Also, every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.
+        Step-6: For images identified as graphs, provide an explanation that captures the overall meaning of the graph, including a detailed description of the x and y axes.  
+        Step-7: For every image containing a perspective view, ensure that the perspective is identified and described in detail. Begin by clearly stating that the image has a perspective view, followed by a thorough explanation of the perspective itself, including angles, depth, and spatial relationships within the image. This must be done for every image that features a perspective view without exception. Ensure that no image with a perspective view is overlooked, and the explanation captures the full depth and context of the perspective in a brief but comprehensive manner.  
+        Step-8: For every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.
+        Additionally, I have a slide with the following bullet points: 
+        Point 1: [Your first point]
+        Point 2: [Your second point]
+        Point 3: [Your third point, which includes examples Eg 1 and Eg 2]
+        Please generate a cohesive paragraph that integrates these points while ensuring that all examples are specifically called out and fully explained. Always use the word "example" each time it appears in the content, and maintain clarity and continuity in the overall description.
+        Step-9: Strictly avoid beginning or using phrases like "The slide" during the explanation to maintain a more natural flow.  
+        Step-10: Strictly avoid beginning or using phrases like "The text" during the explanation to maintain a more natural flow.  
+        Step-11: Strictly avoid beginning or using phrases like "The image" during the explanation to maintain a more natural flow.  
+        Step-12: After referencing the figure, always start the following sentence with "In this aspect," and continue with the detailed explanation of the content.  
+        Step-13: Start by analyzing the text content of the slide. Reproduce the text as accurately as possible, maintaining the context, and then describe the image. Ensure the explanation smoothly integrates both the text and image content.  
+        Step-14: While explaining, ensure that you follow the style guide step-by-step from (a) to (l):  
+        (a) Remove all listed profanity words.  
+        (b) Use passive voice consistently throughout the explanation.  
+        (c) Avoid using the term "consist" or any form of that verb when describing inventions or disclosures.  
+        (d) Replace "Million" with "1,000,000" and "Billion" with "1,000,000,000."  
+        (e) Maintain precision, specificity, and formality in tone. The explanation should be complex, objective, and structured systematically.  
+        (f) Use technical jargon and terminology that is detailed and specific. Maintain an impersonal tone.  
+        (g) Structure the explanation systematically, and use terms like "defined as," "the first set," "the second set," and "for example."  
+        (h) Use conditional and tentative language such as "may include," "in some aspects," "aspects of the present disclosure," "wireless communication networks," "by way of example," "may be," "may further include," "may be used," "may occur," and other similar phrases.  
+        (i) Capture all key wording and phrases accurately. Do not substitute words with synonyms (e.g., maintain "instead" rather than replacing it with "conversely").  
+        (j) Avoid repeating abbreviations if they have already been defined earlier in the explanation.  
+        (k) When discussing the current disclosure, use definitive language.  
+        (l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.  
+        Step-15: I expect you to provide a clear and consistent explanation based on the image. There's no need to mention the steps you're following, use unnecessary formatting (such as bold text), or include unrelated details, topics, or subtopics in your response. Focus solely on delivering a straightforward, cohesive explanation, without describing your process or referring to the current step. Just provide the explanation—nothing more.  
+        """  
         data = {  
             "model": model,  
             "messages": [  
                 {"role": "system", "content": "You are a helpful assistant that responds in Markdown."},  
                 {"role": "user", "content": [  
                     {"type": "text", "text": prompt},  
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}  
-                ]}  
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}]  
+                }  
             ],  
             "temperature": temperature  
         }  
@@ -271,20 +265,25 @@ I expect you to provide a clear and consistent explanation based on the image. T
   
         if response.status_code == 200:  
             result = response.json()  
-            insights.append({  
-                "slide_number": image_data['slide_number'],  
-                "slide_title": image_data.get('slide_title', 'Untitled Slide'),  
-                "insight": result["choices"][0]["message"]["content"]  
-            })  
+            insight = result["choices"][0]["message"]["content"]  
+  
+            if "This slide has no quality content." in insight:  
+                low_quality_slides.append(slide_number)  
+            else:  
+                insights.append({  
+                    "slide_number": slide_number,  
+                    "slide_title": image_data.get('slide_title', 'Untitled Slide'),  
+                    "insight": insight  
+                })  
         else:  
             st.error(f"Error: {response.status_code} - {response.text}")  
             insights.append({  
-                "slide_number": image_data['slide_number'],  
+                "slide_number": slide_number,  
                 "slide_title": image_data.get('slide_title', 'Untitled Slide'),  
                 "insight": "Error in generating insight"  
             })  
   
-    return insights  
+    return insights, low_quality_slides  
   
 def aggregate_content(text_insights, image_insights):  
     aggregated_content = []  
@@ -313,6 +312,12 @@ def sanitize_text(text):
         return sanitized  
     return text  
   
+def ensure_proper_spacing(text):  
+    # Ensure there is a space after each full stop if it is not followed by a space  
+    if text:  
+        return text.replace('. ', '. ').replace('. ', '. ')  
+    return text  
+  
 def save_content_to_word(aggregated_content, output_file_name, extracted_images):  
     doc = Document()  
     style = doc.styles['Normal']  
@@ -326,9 +331,10 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images)
     for slide in aggregated_content:  
         sanitized_title = sanitize_text(slide['slide_title'])  
         sanitized_content = sanitize_text(slide['content'])  
+        properly_spaced_content = ensure_proper_spacing(sanitized_content)  
         doc.add_heading(f"[[{slide['slide_number']}, {sanitized_title}]]", level=1)  
-        if sanitized_content:  # Only add content if it exists  
-            doc.add_paragraph(sanitized_content)  
+        if properly_spaced_content:  # Only add content if it exists  
+            doc.add_paragraph(properly_spaced_content)  
   
     # Add extracted images after the generated content  
     if extracted_images:  
@@ -485,13 +491,17 @@ def main():
             text_insights = generate_text_insights(text_content, visual_slides, text_length)  
   
             st.info("Generating image insights...")  
-            image_insights = generate_image_insights(slide_images, text_length, api_key, azure_endpoint, model, api_version)  
+            image_insights, low_quality_slides = generate_image_insights(slide_images, text_length, api_key, azure_endpoint, model, api_version)  
+  
+            # Filter out low-quality slides from text and image insights  
+            filtered_text_insights = [insight for insight in text_insights if insight['slide_number'] not in low_quality_slides]  
+            filtered_image_insights = [insight for insight in image_insights if insight['slide_number'] not in low_quality_slides]  
   
             st.info("Extracting additional images...")  
             extracted_images = extract_images_from_pdf("temp_pdf.pdf", top_mask, bottom_mask, left_mask, right_mask)  
   
             st.info("Aggregating content...")  
-            aggregated_content = aggregate_content(text_insights, image_insights)  
+            aggregated_content = aggregate_content(filtered_text_insights, filtered_image_insights)  
   
             st.info("Saving to Word document...")  
             output_doc = save_content_to_word(aggregated_content, output_word_filename, extracted_images)  
@@ -504,4 +514,3 @@ def main():
   
 if __name__ == "__main__":  
     main()  
-
