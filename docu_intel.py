@@ -11,6 +11,7 @@ import fitz  # PyMuPDF
 import os  
 import cv2  
 import numpy as np  
+import io  
   
 # Azure OpenAI credentials  
 azure_endpoint = "https://gpt-4omniwithimages.openai.azure.com/"  
@@ -87,28 +88,60 @@ def extract_text_from_ppt(ppt_file):
         text_content.append({"slide_number": slide_number, "slide_title": slide_title, "text": " ".join(slide_text)})  
     return text_content  
   
-def identify_visual_elements(ppt_file):  
-    presentation = Presentation(ppt_file)  
+def is_image_of_interest(shape):  
+    """Check if a shape contains an image in formats of interest"""  
+    try:  
+        if hasattr(shape, "image"):  
+            image_ext = os.path.splitext(shape.image.filename)[1].lower()  
+            if image_ext in [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff"]:  
+                return image_ext  
+    except Exception:  
+        pass  
+    return None  
+  
+def detect_image_slides(ppt_bytes):  
+    """Detect slides containing images in the desired formats"""  
+    ppt = Presentation(io.BytesIO(ppt_bytes))  
+    image_slides = {}  
+    for i, slide in enumerate(ppt.slides):  
+        for shape in slide.shapes:  
+            image_format = is_image_of_interest(shape)  
+            if image_format:  
+                slide_number = i + 1  
+                image_slides[slide_number] = image_format  
+                break  
+    return image_slides  
+  
+def identify_visual_elements(ppt_bytes):  
+    """Identify slides with visual elements"""  
+    presentation = Presentation(io.BytesIO(ppt_bytes))  
     visual_slides = []  
     for slide_number, slide in enumerate(presentation.slides, start=1):  
         has_visual_elements = False  
         for shape in slide.shapes:  
-            if shape.shape_type in {MSO_SHAPE_TYPE.PICTURE, MSO_SHAPE_TYPE.TABLE, MSO_SHAPE_TYPE.CHART, MSO_SHAPE_TYPE.GROUP, MSO_SHAPE_TYPE.AUTO_SHAPE}:  
+            if shape.shape_type in {MSO_SHAPE_TYPE.PICTURE, MSO_SHAPE_TYPE.TABLE, MSO_SHAPE_TYPE.CHART,  
+                                    MSO_SHAPE_TYPE.GROUP, MSO_SHAPE_TYPE.AUTO_SHAPE}:  
                 has_visual_elements = True  
                 break  
         if has_visual_elements:  
             visual_slides.append(slide_number)  
     return visual_slides  
   
+def combine_slide_numbers(image_slides, visual_slides):  
+    """Combine slide numbers from image slides and visual element slides"""  
+    combined_slides = set(image_slides.keys()).union(set(visual_slides))  
+    return sorted(list(combined_slides))  
+  
 def capture_slide_images(pdf_file, slide_numbers):  
+    """Capture images from identified slides in the PDF"""  
     doc = fitz.open(pdf_file)  
     images = []  
     for slide_number in slide_numbers:  
         page = doc[slide_number - 1]  
         pix = page.get_pixmap()  
-        image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)  
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)  
         buffer = BytesIO()  
-        image.save(buffer, format="PNG")  
+        img.save(buffer, format="PNG")  
         images.append({"slide_number": slide_number, "image": buffer.getvalue()})  
     return images  
   
@@ -130,11 +163,8 @@ def generate_text_insights(text_content, visual_slides, text_length):
     for slide in text_content:  
         slide_text = slide['text']  
         slide_number = slide['slide_number']  
-        if len(slide_text.split()) < 20 and slide_number not in visual_slides:  
-            continue  # Skip slides with fewer than 20 words and no visual elements  
         prompt = f"""  
         NOTE: If a slide contains less than 30 words and adds no meaningful value, skip generating content and state, "This slide has no quality content." Ensure accurate validation by comparing the slide's content to others, and only dismiss content that lacks quality or relevance.  
-  
         I want you to immediately begin with one of the following phrases based on the slide title:  
         (a) If and only if the slide title contains the keyword "Background," begin the explanation with "The prior solutions include..." Proceed by discussing only the prior solution presented in the slide. Ensure no mention of any proposal or disclosure occurs at this stage, and strictly limit the explanation to the prior solutions.  
         (b) If and only if the slide title contains the keyword "Proposal," start the explanation with "The present disclosure includes..." Focus exclusively on discussing the proposal or invention presented in the slide. Ensure that no background information is referenced, and strictly adhere to the proposal/invention-related content.  
@@ -145,7 +175,7 @@ def generate_text_insights(text_content, visual_slides, text_length):
         4. Replace "Million" with "1,000,000" and "Billion" with "1,000,000,000."  
         5. Maintain the following tone characteristics: Precision and Specificity, Formality, Complexity, Objective and Impersonal, Structured and Systematic.  
         6. Follow these style elements: Formal and Objective, Structured and Systematic, Technical Jargon and Terminology, Detailed and Specific, Impersonal Tone, Instructional and Descriptive, Use of Figures and Flowcharts, Legal and Protective Language, Repetitive and Redundant, Examples and Clauses.  
-        7. Use the following conditional and tentative language phrases: may include, in some aspects, aspects of the present disclosure, wireless communication networks, by way of example, may be, may further include, may be used, may occur, may use, may monitor, may periodically wake up, may demodulate, may consume, can be performed, may enter and remain, may correspond to, may also include, may be identified in response to, may be further a function of, may be multiplied by, may schedule, may select, may also double, may further comprise, may be configured to, may correspond to a duration value, may correspond to a product of, may be closer, may be significant, may not be able, may result, may reduce, may be operating in, may further be configured to, may further process, may be executed by, may be received, may avoid, may indicate, may be selected, may be proactive, may perform, may be necessary, may be amplified, may involve, may require, may be stored, may be accessed, may be transferred, may be implemented, may include instructions to, may depend upon, may communicate, may be generated, may be configured.  
+        7. Use the following conditional and tentative language phrases: may include, in some aspects, aspects of the present disclosure, by way of example, may be, may further include, may be used, may occur, may use, may monitor, may periodically wake up, may demodulate, may consume, can be performed, may enter and remain, may correspond to, may also include, may be identified in response to, may be further a function of, may be multiplied by, may schedule, may select, may also double, may further comprise, may be configured to, may correspond to a duration value, may correspond to a product of, may be closer, may be significant, may not be able, may result, may reduce, may be operating in, may further be configured to, may further process, may be executed by, may be received, may avoid, may indicate, may be selected, may be proactive, may perform, may be necessary, may be amplified, may involve, may require, may be stored, may be accessed, may be transferred, may be implemented, may include instructions to, may depend upon, may communicate, may be generated, may be configured.  
         8. Maintain the exact wording in the generated content. Do not substitute words with synonyms. For example, "instead" should remain "instead" and not be replaced with "conversely."  
         9. Replace the phrase "further development" with "our disclosure" in all generated content.  
         10. Make sure to use LaTeX formatting for all mathematical symbols, equations, subscripting, and superscripting to ensure they are displayed correctly in the output.  
@@ -208,23 +238,26 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         }  
   
         prompt = f"""  
-        NOTE: If a slide contains less than 30 words and adds no meaningful value, skip generating content and state, "This slide has no quality content." Ensure accurate validation by comparing the slide’s content to others, and only dismiss content that lacks quality or relevance.  
         Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, especially when multiple figures are arranged in parallel or adjacent to each other.  
         Step-1(a): If there is one figure or multiple figures, use the format: "Referring to {image_ref}(1), {image_ref}(2), and to {image_ref}(3)" ensuring that every figure is referenced correctly. Make sure to list and refer to all figures, even if they are positioned in adjacent to one another.  
         Step-1(b): After listing the figures, accurately describe and reference each one according to its position, ensuring that no figure is skipped.  
+  
         Finally, follow the steps below:  
         Step-2: After listing the slide reference, begin immediately after the comma with one of the following phrases based on the slide title. Ensure that the word directly following the comma starts with a lowercase letter. This rule must be followed consistently for all slides.  
         Step-3: If and only if the slide title contains the keyword "Background," begin the explanation with "The prior solutions include..." Proceed by discussing only the prior solution presented in the slide. Ensure no mention of any proposal or disclosure occurs at this stage, and strictly limit the explanation to the prior solutions.  
         Step-4: If and only if the slide title contains the keyword "Proposal," start the explanation with "The present disclosure includes..." Focus exclusively on discussing the proposal or invention presented in the slide. Ensure that no background information is referenced, and strictly adhere to the proposal/invention-related content.  
-        Step-5: If the slide title does not contain either "Background" or "Proposal," start the explanation with "Aspects of the present disclosure include..." Discuss the key aspects of the slide's content, ensuring no mention of prior solutions or proposals. Adhere to the neutral tone, focusing on the core aspects of the slide's content. Also, every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.
+        Step-5: If the slide title does not contain either "Background" or "Proposal," start the explanation with "Aspects of the present disclosure include..." Discuss the key aspects of the slide's content, ensuring no mention of prior solutions or proposals. Adhere to the neutral tone, focusing on the core aspects of the slide's content. Also, every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.  
+  
         Step-6: For images identified as graphs, provide an explanation that captures the overall meaning of the graph, including a detailed description of the x and y axes.  
         Step-7: For every image containing a perspective view, ensure that the perspective is identified and described in detail. Begin by clearly stating that the image has a perspective view, followed by a thorough explanation of the perspective itself, including angles, depth, and spatial relationships within the image. This must be done for every image that features a perspective view without exception. Ensure that no image with a perspective view is overlooked, and the explanation captures the full depth and context of the perspective in a brief but comprehensive manner.  
-        Step-8: For every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.
-        Additionally, I have a slide with the following bullet points: 
-        Point 1: [Your first point]
-        Point 2: [Your second point]
-        Point 3: [Your third point, which includes examples Eg 1 and Eg 2]
-        Please generate a cohesive paragraph that integrates these points while ensuring that all examples are specifically called out and fully explained. Always use the word "example" each time it appears in the content, and maintain clarity and continuity in the overall description.
+        Step-8: For every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.  
+  
+        Additionally, I have a slide with the following bullet points:  
+        Point 1: [Your first point]  
+        Point 2: [Your second point]  
+        Point 3: [Your third point, which includes examples Eg 1 and Eg 2]  
+        Please generate a cohesive paragraph that integrates these points while ensuring that all examples are specifically called out and fully explained. Always use the word "example" each time it appears in the content, and maintain clarity and continuity in the overall description.  
+  
         Step-9: Strictly avoid beginning or using phrases like "The slide" during the explanation to maintain a more natural flow.  
         Step-10: Strictly avoid beginning or using phrases like "The text" during the explanation to maintain a more natural flow.  
         Step-11: Strictly avoid beginning or using phrases like "The image" during the explanation to maintain a more natural flow.  
@@ -235,14 +268,15 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         (b) Use passive voice consistently throughout the explanation.  
         (c) Avoid using the term "consist" or any form of that verb when describing inventions or disclosures.  
         (d) Replace "Million" with "1,000,000" and "Billion" with "1,000,000,000."  
-        (e) Maintain precision, specificity, and formality in tone. The explanation should be complex, objective, and structured systematically.  
+                (e) Maintain precision, specificity, and formality in tone. The explanation should be complex, objective, and structured systematically.  
         (f) Use technical jargon and terminology that is detailed and specific. Maintain an impersonal tone.  
         (g) Structure the explanation systematically, and use terms like "defined as," "the first set," "the second set," and "for example."  
-        (h) Use conditional and tentative language such as "may include," "in some aspects," "aspects of the present disclosure," "wireless communication networks," "by way of example," "may be," "may further include," "may be used," "may occur," and other similar phrases.  
+        (h) Use conditional and tentative language such as "may include," "in some aspects," "aspects of the present disclosure," "by way of example," "may be," "may further include," "may be used," "may occur," and other similar phrases.  
         (i) Capture all key wording and phrases accurately. Do not substitute words with synonyms (e.g., maintain "instead" rather than replacing it with "conversely").  
         (j) Avoid repeating abbreviations if they have already been defined earlier in the explanation.  
         (k) When discussing the current disclosure, use definitive language.  
         (l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.  
+  
         Step-15: I expect you to provide a clear and consistent explanation based on the image. There's no need to mention the steps you're following, use unnecessary formatting (such as bold text), or include unrelated details, topics, or subtopics in your response. Focus solely on delivering a straightforward, cohesive explanation, without describing your process or referring to the current step. Just provide the explanation—nothing more.  
         """  
         data = {  
@@ -313,12 +347,11 @@ def sanitize_text(text):
     return text  
   
 def ensure_proper_spacing(text):  
-    # Ensure there is a space after each full stop if it is not followed by a space  
     if text:  
         return text.replace('. ', '. ').replace('. ', '. ')  
     return text  
   
-def save_content_to_word(aggregated_content, output_file_name, extracted_images):  
+def save_content_to_word(aggregated_content, output_file_name, extracted_images, low_quality_slides):  
     doc = Document()  
     style = doc.styles['Normal']  
     font = style.font  
@@ -340,11 +373,12 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images)
     if extracted_images:  
         doc.add_heading("Extracted Images", level=1)  
         for idx, (image, slide_number) in enumerate(extracted_images):  
-            _, buffer = cv2.imencode('.png', image)  
-            image_stream = BytesIO(buffer)  
-            doc.add_paragraph(f"Image from Slide {slide_number}:")  
-            doc.add_picture(image_stream, width=doc.sections[0].page_width - doc.sections[0].left_margin - doc.sections[0].right_margin)  
-            doc.add_paragraph("\n")  # Add space after image  
+            if slide_number not in low_quality_slides:  # Skip low-quality slides  
+                _, buffer = cv2.imencode('.png', image)  
+                image_stream = BytesIO(buffer)  
+                doc.add_paragraph(f"Image from Slide {slide_number}:")  
+                doc.add_picture(image_stream, width=doc.sections[0].page_width - doc.sections[0].left_margin - doc.sections[0].right_margin)  
+                doc.add_paragraph("\n")  # Add space after image  
   
     output = BytesIO()  
     doc.save(output)  
@@ -480,12 +514,22 @@ def main():
                 st.error("PDF conversion failed. Please check the uploaded PPT file.")  
                 return  
   
+            # Read the PPT file content as bytes  
+            with open("temp_ppt.pptx", "rb") as f:  
+                ppt_bytes = f.read()  
+  
             # Extract text and identify slides with visual elements  
-            text_content = extract_text_from_ppt("temp_ppt.pptx")  
-            visual_slides = identify_visual_elements("temp_ppt.pptx")  
+            text_content = extract_text_from_ppt(BytesIO(ppt_bytes))  
+            visual_slides = identify_visual_elements(ppt_bytes)  
+  
+            # Detect slides with images  
+            image_slides = detect_image_slides(ppt_bytes)  
+  
+            # Combine slide numbers from both functions  
+            combined_slides = combine_slide_numbers(image_slides, visual_slides)  
   
             # Capture images of marked slides  
-            slide_images = capture_slide_images("temp_pdf.pdf", visual_slides)  
+            slide_images = capture_slide_images("temp_pdf.pdf", combined_slides)  
   
             st.info("Generating text insights...")  
             text_insights = generate_text_insights(text_content, visual_slides, text_length)  
@@ -504,7 +548,7 @@ def main():
             aggregated_content = aggregate_content(filtered_text_insights, filtered_image_insights)  
   
             st.info("Saving to Word document...")  
-            output_doc = save_content_to_word(aggregated_content, output_word_filename, extracted_images)  
+            output_doc = save_content_to_word(aggregated_content, output_word_filename, extracted_images, low_quality_slides)  
   
             st.download_button(label="Download Word Document", data=output_doc, file_name=output_word_filename)  
   
