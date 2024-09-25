@@ -222,7 +222,8 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         8. Maintain the exact wording in the generated content. Do not substitute words with synonyms. For example, "instead" should remain "instead" and not be replaced with "conversely."  
         9. Replace the phrase "further development" with "our disclosure" in all generated content.  
         10. Use LaTeX formatting for all mathematical symbols, equations, subscripting, and superscripting to ensure they are displayed correctly in the output.  
-        11. Accurately represent and contextually retain programmatic terms or equations.  
+        11. Accurately represent and contextually retain programmatic terms or equations.
+        12. Avoid using unnecessary adjectives like "revolutionizing," "innovative," or similar descriptors throughout the entire explanation for every slide. Ensure descriptions are clear, factual, and focused strictly on the content without embellishments.  
         {slide_text}  
         """  
   
@@ -285,12 +286,14 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
   
         prompt = f"""  
         {theme}  
-        Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, especially when multiple figures are arranged in parallel or adjacent to each other.  
-        
-        Step-1(a): If there is one figure or multiple figures, use the format: "Referring to Figure{image_ref}(a), Figure{image_ref}(b), and to Figure{image_ref}(c)" ensuring that every figure is referenced correctly.  
-        
-        Step-1(b): After listing the figures, accurately describe and reference each one according to its position, ensuring that no figure is skipped.  
-        
+        Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, whether it’s a single figure or multiple figures arranged in parallel, adjacent, or as part of a larger visual element.
+
+        Step-1(a): If there is a single figure, treat it as one cohesive unit and refer to it as "Referring to Figure{image_ref}" ensuring the entire figure is captured and not divided into smaller parts unless necessary.
+
+        Step-1(b): If there are multiple figures, reference each one distinctly using the format: "Referring to Figure{image_ref}(a), Figure{image_ref}(b), and to Figure{image_ref}(c)" ensuring that each figure is described clearly, distinguishing them by their appearance or position.
+
+        Step-1(c): Maintain consistency in figure referencing across all slides, ensuring all figures are correctly referenced without breaking cohesive elements into smaller parts unless explicitly required. Accurately describe and reference each figure for clarity.
+
         Step-2: After listing the slide reference, begin immediately after the comma with one of the following phrases based on the slide title. Ensure that the word directly following the comma starts with a lowercase letter. This rule must be followed consistently for all slides.  
         
         Step-3: If and only if the slide title contains the keyword "Background," begin the explanation with "The prior solutions include..." Proceed by discussing only the prior solution presented in the slide. Ensure no mention of any proposal or disclosure occurs at this stage, and strictly limit the explanation to the prior solutions.  
@@ -303,27 +306,30 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         
         Step-7: For every image containing a perspective view, ensure that the perspective is identified and described in detail. Begin by clearly stating that the image has a perspective view, followed by a thorough explanation of the perspective itself, including angles, depth, and spatial relationships within the image. This must be done for every image that features a perspective view without exception. Ensure that no image with a perspective view is overlooked, and the explanation captures the full depth and context of the perspective in a brief but comprehensive manner.  
         
-        Step-8: Instead of labeling the images as "left figure" or "right figure" refer to them using a specific reference that identifies which figure is being referenced.  
+        Step-8: If a diagram or figure includes directional flow (indicated by arrows or similar markers, such as the flow of air, water, light, or motion direction), ensure that the directional flow is clearly captured and explained. The description should qualitatively convey the progression or sequence from start to end, using the term directional flow instead of 'arrow' or 'arrow mark.' The explanation should be clear, detailed, and accurately reflect the intended process or flow depicted in the figure. 
+        Additionally, if the figure contains sketches or stick figures, ensure they are explicitly referenced in your explanation, with a detailed description of their role, positioning, and interaction within the diagram. 
+        Accurately describe their purpose, covering all key aspects of the figure and its intended meaning. Strictly reproduce all key terminologies marked and referred to in the figures, explaining their connection clearly and ensuring that all terms are maintained exactly as they appear within the figure's context or process.
+
+        Step-9: Instead of labeling the images as "left figure" or "right figure" refer to them using a specific reference that identifies which figure is being referenced.  
         
-        Step-9: For every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.  
-        
+        Step-10: For every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.        
         Additionally, I have a slide with the following bullet points:  
         Point 1: [Your first point]  
         Point 2: [Your second point]  
         Point 3: [Your third point, which includes examples Eg 1 and Eg 2]  
         Please generate a cohesive paragraph that integrates these points while ensuring that all examples are specifically called out and fully explained. Always use the word "example" each time it appears in the content, and maintain clarity and continuity in the overall description.  
         
-        Step-10: Strictly avoid beginning or using phrases like "The slide" during the explanation to maintain a more natural flow.  
+        Step-11: Strictly avoid beginning or using phrases like "The slide" during the explanation to maintain a more natural flow.  
         
-        Step-11: Strictly avoid beginning or using phrases like "The text" during the explanation to maintain a more natural flow.  
+        Step-12: Strictly avoid beginning or using phrases like "The text" during the explanation to maintain a more natural flow.  
         
-        Step-12: Strictly avoid beginning or using phrases like "The image" during the explanation to maintain a more natural flow.  
+        Step-13: Strictly avoid beginning or using phrases like "The image" during the explanation to maintain a more natural flow.  
         
-        Step-13: After referencing the figure, always start the following sentence with "In this aspect," and continue with the detailed explanation of the content.  
+        Step-14: After referencing the figure, always start the following sentence with "In this aspect," and continue with the detailed explanation of the content.  
         
-        Step-14: Start by analyzing the text content of the slide. Reproduce the text as accurately as possible, maintaining the context, and then describe the image. Ensure the explanation smoothly integrates both the text and image content.  
+        Step-15: Start by analyzing the text content of the slide. Reproduce the text as accurately as possible, maintaining the context, and then describe the image. Ensure the explanation smoothly integrates both the text and image content.  
         
-        Step-15: While explaining, ensure that you follow the style guide step-by-step from (a) to (l):  
+        Step-16: While explaining, ensure that you follow the style guide step-by-step from (a) to (l):  
         (a) Remove all listed profanity words.  
         (b) Use passive voice consistently throughout the explanation.  
         (c) Avoid using the term "consist" or any form of that verb when describing inventions or disclosures.  
@@ -335,9 +341,11 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         (i) Capture all key wording and phrases accurately. Do not substitute words with synonyms (e.g., maintain "instead" rather than replacing it with "conversely").  
         (j) Avoid repeating abbreviations if they have already been defined earlier in the explanation.  
         (k) When discussing the current disclosure, use definitive language.  
-        (l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.  
+        (l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.
+
+        Step-17: Avoid using unnecessary adjectives like "revolutionizing," "innovative," or similar descriptors throughout the entire explanation for every slide. Ensure descriptions are clear, factual, and focused strictly on the content without embellishments.  
         
-        Step-16: I expect you to provide a clear and consistent explanation based on the image. There's no need to mention the steps you're following, use unnecessary formatting (such as bold text), or include unrelated details, topics, or subtopics in your response. Focus solely on delivering a straightforward, cohesive explanation, without describing your process or referring to the current step. Just provide the explanation—nothing more.  
+        Step-18: I expect you to provide a clear and consistent explanation based on the image. There's no need to mention the steps you're following, use unnecessary formatting (such as bold text), or include unrelated details, topics, or subtopics in your response. Focus solely on delivering a straightforward, cohesive explanation, without describing your process or referring to the current step. Just provide the explanation—nothing more.  
         """   
         data = {  
             "model": model,  
