@@ -6,3 +6,5 @@ python-docx
 PyMuPDF
 opencv-python-headless
 numpy
+azure-storage-blob
+azure-core
