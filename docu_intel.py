@@ -232,6 +232,7 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         11. Accurately represent and contextually retain programmatic terms or equations.  
         12. Avoid using unnecessary adjectives like "revolutionizing," "innovative," or similar descriptors throughout the entire explanation for every slide. Ensure descriptions are clear, factual, and focused strictly on the content without embellishments.
         13. If a term requires an abbreviation, define the full term only once upon its first mention. Use only the abbreviation for all subsequent references, avoiding repetition of the full term. Ensure clarity and consistency throughout the explanation.     
+        14. Never use 'consist' or any variation of this verb when generating the explanation.
         {slide_text}  
         """  
   
@@ -331,7 +332,7 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         
         Step-15: Start by analyzing the text content of the slide. Reproduce the text as accurately as possible, maintaining the context, and then describe the image. Ensure the explanation smoothly integrates both the text and image content.  
         
-        Step-16: While explaining, ensure that you follow the style guide step-by-step from (a) to (m):  
+        Step-16: While explaining, ensure that you follow the style guide step-by-step from (a) to (n):  
         (a) Remove all listed profanity words.  
         (b) Use passive voice consistently throughout the explanation.  
         (c) Avoid using the term "consist" or any form of that verb when describing inventions or disclosures.  
@@ -345,6 +346,7 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         (k) When discussing the current disclosure, use definitive language.  
         (l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.  
         (m) If a term requires an abbreviation, define the full term only once upon its first mention. Use only the abbreviation for all subsequent references, avoiding repetition of the full term. Ensure clarity and consistency throughout the explanation.
+        (n) Never use 'consist' or any variation of this verb when generating the explanation.
         
         Step-17: Avoid using unnecessary adjectives like "revolutionizing," "innovative," or similar descriptors throughout the entire explanation for every slide. Ensure descriptions are clear, factual, and focused strictly on the content without embellishments.  
         
