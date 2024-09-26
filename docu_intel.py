@@ -231,7 +231,7 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         10. Use LaTeX formatting for all mathematical symbols, equations, subscripting, and superscripting to ensure they are displayed correctly in the output.  
         11. Accurately represent and contextually retain programmatic terms or equations.  
         12. Avoid using unnecessary adjectives like "revolutionizing," "innovative," or similar descriptors throughout the entire explanation for every slide. Ensure descriptions are clear, factual, and focused strictly on the content without embellishments.
-        13. If there is a word that requires an abbreviation, define it only once at the beginning. For the rest of the explanation, use only the abbreviation without repeating the full term again. Avoid unnecessary repetition and maintain clarity throughout.     
+        13. If a term requires an abbreviation, define the full term only once upon its first mention. Use only the abbreviation for all subsequent references, avoiding repetition of the full term. Ensure clarity and consistency throughout the explanation.     
         {slide_text}  
         """  
   
@@ -344,7 +344,7 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         (j) Avoid repeating abbreviations if they have already been defined earlier in the explanation.  
         (k) When discussing the current disclosure, use definitive language.  
         (l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.  
-        (m) If there is a word that requires an abbreviation, define it only once at the beginning. For the rest of the explanation, use only the abbreviation without repeating the full term again. Avoid unnecessary repetition and maintain clarity throughout.
+        (m) If a term requires an abbreviation, define the full term only once upon its first mention. Use only the abbreviation for all subsequent references, avoiding repetition of the full term. Ensure clarity and consistency throughout the explanation.
         
         Step-17: Avoid using unnecessary adjectives like "revolutionizing," "innovative," or similar descriptors throughout the entire explanation for every slide. Ensure descriptions are clear, factual, and focused strictly on the content without embellishments.  
         
