@@ -213,12 +213,17 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         NOTE: Please adhere strictly to English grammar rules in all generated explanations. Ensure a single space after each full stop, start each sentence with a capital letter, and maintain proper sentence separation for clarity. The text should follow grammatical conventions, be clear and coherent, and read smoothly without any spacing errors or formatting issues. Consistently apply these rules to produce professional, well-structured output.  
         
         I want you to begin with one of the following phrases based on the slide title:  
+        
         (a) If and only if the slide title contains the keyword "Background," begin the explanation with "The prior solutions include..." Proceed by discussing only the prior solution presented in the slide. Ensure no mention of any proposal or disclosure occurs at this stage, and strictly limit the explanation to the prior solutions.  
+        
         (b) If and only if the slide title contains the keyword "Proposal," start the explanation with "The present disclosure includes..." Focus exclusively on discussing the proposal or invention presented in the slide. Ensure that no background information is referenced, and strictly adhere to the proposal/invention-related content.  
+        
         (c) If the slide title does not contain either "Background" or "Proposal," start the explanation with "Aspects of the present disclosure include..." Discuss the key aspects of the slide's content, ensuring no mention of prior solutions or proposals. Adhere to the neutral tone, focusing on the core aspects of the slide's content.  
+        
         The information should be delivered in a structured, clear, and concise paragraph while avoiding phrases like 'The slide presents,' 'discusses,' 'outlines,' or 'content.' Summarize all major points without bullet points.  
         
         Follow these detailed style guidelines for the generated content from 1 to 13:  
+        
         1. Remove all listed profanity words.  
         2. Use passive voice consistently.  
         3. Use conditional and tentative language, such as "may include," "in some aspects," and "aspects of the present disclosure."  
@@ -300,8 +305,11 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         NOTE: Please adhere strictly to English grammar rules in all generated explanations. Ensure a single space after each full stop, start each sentence with a capital letter, and maintain proper sentence separation for clarity. The text should follow grammatical conventions, be clear and coherent, and read smoothly without any spacing errors or formatting issues. Consistently apply these rules to produce professional, well-structured output.   
         
         Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, whether it’s a single figure or multiple figures arranged in parallel, adjacent, or as part of a larger visual element.  
+        
         Step-1(a): If there is a single figure, treat it as one cohesive unit and refer to it as "Referring to Figure{image_ref}" ensuring the entire figure is captured and not divided into smaller parts unless necessary.  
+        
         Step-1(b): If there are multiple figures, reference each one distinctly using the format: "Referring to Figure{image_ref}(a), Figure{image_ref}(b), and to Figure{image_ref}(c)" ensuring that each figure is described clearly, distinguishing them by their appearance or position.  
+        
         Step-1(c): Maintain consistency in figure referencing across all slides, ensuring all figures are correctly referenced without breaking cohesive elements into smaller parts unless explicitly required. Accurately describe and reference each figure for clarity.  
         
         Step-2: After listing the slide reference, begin immediately after the comma with one of the following phrases based on the slide title. Ensure that the word directly following the comma starts with a lowercase letter. This rule must be followed consistently for all slides.  
@@ -321,6 +329,11 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         Step-9: Instead of labeling the images as "left figure" or "right figure" refer to them using a specific reference that identifies which figure is being referenced.  
         
         Step-10: For every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.  
+        Additionally, I have a slide with the following bullet points:  
+        Point 1: [Your first point]  
+        Point 2: [Your second point]  
+        Point 3: [Your third point, which includes examples Eg 1 and Eg 2]
+        Please generate a cohesive paragraph that integrates these points while ensuring that all examples are specifically called out and fully explained. Always use the word "example" each time it appears in the content, and maintain clarity and continuity in the overall description.  
         
         Step-11: Strictly avoid beginning or using phrases like "The slide" during the explanation to maintain a more natural flow.  
         
