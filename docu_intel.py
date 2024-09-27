@@ -15,6 +15,7 @@ import io
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient  
 from azure.core.exceptions import ResourceExistsError  
 import tempfile  
+import re
   
 # Azure OpenAI credentials  
 azure_endpoint = "https://gpt-4omniwithimages.openai.azure.com/"  
@@ -29,7 +30,7 @@ container_name = "ppt-storage"
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)  
   
 # URL of your Azure function endpoint  
-azure_function_url = 'https://doc2pdf.azurewebsites.net/api/HttpTrigger1'  
+azure_function_url = 'https://doc2pdf.azurewebsites.net/api/HttpTrigger1'   
   
 # Function to convert PPT to PDF using Azure Function  
 def ppt_to_pdf(ppt_file, pdf_file):  
@@ -128,7 +129,7 @@ def identify_visual_elements(ppt_bytes):
     for slide_number, slide in enumerate(presentation.slides, start=1):  
         has_visual_elements = False  
         for shape in slide.shapes:  
-            if shape.shape_type in {MSO_SHAPE_TYPE.PICTURE, MSO_SHAPE_TYPE.TABLE, MSO_SHAPE_TYPE.CHART,  
+            if shape.shape_type in {MSO_SHAPE_TYPE.PICTURE, MSO_SHAPE_TYPE.TABLE, MSO_SHAPE_TYPE.CHART,   
                                     MSO_SHAPE_TYPE.GROUP, MSO_SHAPE_TYPE.AUTO_SHAPE}:  
                 has_visual_elements = True  
                 break  
@@ -206,8 +207,9 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
             continue  # Skip low-quality slides  
   
         slide_text = slide['text']  
-        prompt = f"""       
-        {theme} 
+        
+        prompt = f"""  
+        {theme}  
         I want you to begin with one of the following phrases based on the slide title:  
         
         (a) If and only if the slide title contains the keyword "Background," begin the explanation with "The prior solutions include..." Proceed by discussing only the prior solution presented in the slide. Ensure no mention of any proposal or disclosure occurs at this stage, and strictly limit the explanation to the prior solutions.  
@@ -218,7 +220,7 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         
         The information should be delivered in a structured, clear, and concise paragraph while avoiding phrases like 'The slide presents,' 'discusses,' 'outlines,' or 'content.' Summarize all major points without bullet points.  
         
-        Follow these detailed style guidelines for the generated content:      
+        Follow these detailed style guidelines for the generated content:  
         
         1. Remove all listed profanity words.  
         2. Use passive voice consistently.  
@@ -230,10 +232,9 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         8. Maintain the exact wording in the generated content. Do not substitute words with synonyms. For example, "instead" should remain "instead" and not be replaced with "conversely."  
         9. Replace the phrase "further development" with "our disclosure" in all generated content.  
         10. Use LaTeX formatting for all mathematical symbols, equations, subscripting, and superscripting to ensure they are displayed correctly in the output.  
-        11. Accurately represent and contextually retain programmatic terms or equations.  
-        12. Avoid using unnecessary adjectives like "revolutionizing," "innovative," or similar descriptors throughout the entire explanation for every slide. Ensure descriptions are clear, factual, and focused strictly on the content without embellishments.
-        13. If a term requires an abbreviation, define the full term only once upon its first mention. Use only the abbreviation for all subsequent references, avoiding repetition of the full term. Ensure clarity and consistency throughout the explanation.     
-        14. Never use 'consist' or any variation of this verb when generating the explanation.
+        11. Accurately represent and contextually retain programmatic terms or equations.
+        12. Avoid expanding abbreviations under any circumstances. Use abbreviations exactly as they appear in the extracted content. If an abbreviation is present, reproduce it as is, without repeating or expanding it at any point throughout the entire explanation.
+        13. Avoid using terms like 'consist/consisting,' 'exploration/explore,' 'key component,' and 'necessary,' as well as adjectives like 'revolutionizing,' 'innovative,' or similar descriptors.
         {slide_text}  
         """  
   
@@ -294,15 +295,30 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
             "api-key": api_key  
         }  
   
-        prompt = f"""
-        {theme} 
-        Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, whether it’s a single figure or multiple figures arranged in parallel, adjacent, or as part of a larger visual element.
+        prompt = f"""  
+        {theme}  
+        Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked. This includes cases where multiple figures are arranged in parallel, adjacent to each other, or stacked in a sequence. Treat each unique diagram, sketch, or flowchart as a separate figure.
 
-        Step-1(a): If there is a single figure, treat it as one cohesive unit and refer to it as "Referring to Figure{image_ref}" ensuring the entire figure is captured and not divided into smaller parts unless necessary.
+        Step-1(a): Reference all figures explicitly and sequentially using the format:
+        “Referring to Figure {image_ref}(a), Figure {image_ref}(b), and Figure {image_ref}(c)” for three figures, or “Referring to Figure {image_ref}(a)” and “Referring to Figure {image_ref}(b)” for two figures.
 
-        Step-1(b): If there are multiple figures, reference each one distinctly using the format: "Referring to Figure{image_ref}(a), Figure{image_ref}(b), and to Figure{image_ref}(c)" ensuring that each figure is described clearly, distinguishing them by their appearance or position.
+        Important: For slides containing multiple figures, ensure that each figure is individually referenced and mentioned, regardless of any similarities between them. Each figure reference must be unique and should not be skipped or combined with other figures.
+        Step-1(b): Verify that the references are included in the generated output. Each figure must be mentioned before its detailed description. The order of references should match the visual order of the figures as they appear in the slide.
 
-        Step-1(c): Maintain consistency in figure referencing across all slides, ensuring all figures are correctly referenced without breaking cohesive elements into smaller parts unless explicitly required. Accurately describe and reference each figure for clarity.
+        Step-1(c): After referencing the figures, describe each one individually and in sequence, using the specific reference format consistently. For example:
+
+        “Figure {image_ref}(a) illustrates...”
+        “Figure {image_ref}(b) shows...”
+        “Figure {image_ref}(c) demonstrates...”
+        Ensure each figure’s role and relevance are fully explained without omitting any figure or detail.
+
+        Step-1(d): If the generated output does not reference all detected figures or merges references (e.g., saying “the figures” instead of listing them individually), flag the response and provide a detailed alert noting which figures were missed or incorrectly referenced. This ensures every figure is distinctly acknowledged and described.
+
+        Step-1(e): For slides containing complex or overlapping figures, describe their relationships and interactions clearly. Avoid using generalized terms like “the figures” and instead use precise references (e.g., “Figure {image_ref}(a) interacts with Figure {image_ref}(b)...”).
+
+        Final Check: Ensure the response includes all figures as detected, with each figure uniquely referenced and accurately described. Cross-check the references to ensure they are complete and in the correct order.
+        
+        Finally, follow the steps below:  
         
         Step-2: After listing the slide reference, begin immediately after the comma with one of the following phrases based on the slide title. Ensure that the word directly following the comma starts with a lowercase letter. This rule must be followed consistently for all slides.  
         
@@ -310,34 +326,33 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         
         Step-4: If and only if the slide title contains the keyword "Proposal," start the explanation with "The present disclosure includes..." Focus exclusively on discussing the proposal or invention presented in the slide. Ensure that no background information is referenced, and strictly adhere to the proposal/invention-related content.  
         
-        Step-5: If the slide title does not contain either "Background" or "Proposal," start the explanation with "Aspects of the present disclosure include..." Discuss the key aspects of the slide's content, ensuring no mention of prior solutions or proposals. Adhere to the neutral tone, focusing on the core aspects of the slide's content. Also, every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.  
+        Step-5: If the slide title does not contain either "Background" or "Proposal," start the explanation with "Aspects of the present disclosure include..." Discuss the key aspects of the slide's content, ensuring no mention of prior solutions or proposals. Adhere to the neutral tone, focusing on the core aspects of the slide's content. Also, every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.
         
         Step-6: For images identified as graphs, provide an explanation that captures the overall meaning of the graph, including a detailed description of the x and y axes.  
         
         Step-7: For every image containing a perspective view, ensure that the perspective is identified and described in detail. Begin by clearly stating that the image has a perspective view, followed by a thorough explanation of the perspective itself, including angles, depth, and spatial relationships within the image. This must be done for every image that features a perspective view without exception. Ensure that no image with a perspective view is overlooked, and the explanation captures the full depth and context of the perspective in a brief but comprehensive manner.  
         
-        Step-8: If you identify the figure or diagram as a sketch with arrow marks depicting operational flow—such as the flow of air, water, light, or motion direction—ignore the standard figure referencing prompt and instead provide a descriptive explanation that captures the essence of the sketch. Begin by fully understanding the entire image, including the overall process and connections between elements. Describe the operational flow in a logical, step-by-step manner, clearly outlining the sequence from start to finish, always using the term operational flow instead of ‘arrow’ or ‘arrow mark.’ If the sketch includes additional elements like stick figures or other visual components, describe their roles, positions, and interactions within the operational flow. Explicitly identify and explain all key terminologies, labels, and abbreviations—such as ‘M’ or ‘L’—within the context. If necessary, deduce the meaning of any abbreviations from the content. Ensure the explanation is coherent, consistent, and covers all relevant aspects of the sketch, without skipping any details or introducing unnecessary complexities.
+        Step-8: Instead of labeling the images as "left figure" or "right figure" refer to them using a specific reference that identifies which figure is being referenced.  
         
-        Step-9: Instead of labeling the images as "left figure" or "right figure" refer to them using a specific reference that identifies which figure is being referenced.  
+        Step-9: For every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.  
         
-        Step-10: For every image or slide that contains the word "example" or "e.g.," ensure that the word is reproduced exactly as it appears, every time it is used. Each example must be thoroughly explained, and the word "example" should consistently be used when referring to examples. Avoid using alternative words such as "additionally" or "furthermore." If the image contains multiple examples, ensure that all examples are explained in detail and that each occurrence of the word "example" is properly included in the explanation. No examples should be overlooked or combined into a single sentence without proper reference to each one.  
         Additionally, I have a slide with the following bullet points:  
         Point 1: [Your first point]  
         Point 2: [Your second point]  
-        Point 3: [Your third point, which includes examples Eg 1 and Eg 2]
+        Point 3: [Your third point, which includes examples Eg 1 and Eg 2]  
         Please generate a cohesive paragraph that integrates these points while ensuring that all examples are specifically called out and fully explained. Always use the word "example" each time it appears in the content, and maintain clarity and continuity in the overall description.  
         
-        Step-11: Strictly avoid beginning or using phrases like "The slide" during the explanation to maintain a more natural flow.  
+        Step-10: Strictly avoid beginning or using phrases like "The slide" during the explanation to maintain a more natural flow.  
         
-        Step-12: Strictly avoid beginning or using phrases like "The text" during the explanation to maintain a more natural flow.  
+        Step-11: Strictly avoid beginning or using phrases like "The text" during the explanation to maintain a more natural flow.  
         
-        Step-13: Strictly avoid beginning or using phrases like "The image" during the explanation to maintain a more natural flow.  
+        Step-12: Strictly avoid beginning or using phrases like "The image" during the explanation to maintain a more natural flow.  
         
-        Step-14: After referencing the figure, always start the following sentence with "In this aspect," and continue with the detailed explanation of the content.  
+        Step-13: After referencing the figure, always start the following sentence with "In this aspect," and continue with the detailed explanation of the content.  
         
-        Step-15: Start by analyzing the text content of the slide. Reproduce the text as accurately as possible, maintaining the context, and then describe the image. Ensure the explanation smoothly integrates both the text and image content.  
+        Step-14: Start by analyzing the text content of the slide. Reproduce the text as accurately as possible, maintaining the context, and then describe the image. Ensure the explanation smoothly integrates both the text and image content.  
         
-        Step-16: While explaining, ensure that you follow the style guide step-by-step from (a) to (n):  
+        Step-15: While explaining, ensure that you follow the style guide step-by-step from (a) to (l):  
         (a) Remove all listed profanity words.  
         (b) Use passive voice consistently throughout the explanation.  
         (c) Avoid using the term "consist" or any form of that verb when describing inventions or disclosures.  
@@ -347,25 +362,22 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         (g) Structure the explanation systematically, and use terms like "defined as," "the first set," "the second set," and "for example."  
         (h) Use conditional and tentative language such as "may include," "in some aspects," "aspects of the present disclosure," "by way of example," "may be," "may further include," "may be used," "may occur," and other similar phrases.  
         (i) Capture all key wording and phrases accurately. Do not substitute words with synonyms (e.g., maintain "instead" rather than replacing it with "conversely").  
-        (j) Avoid repeating abbreviations if they have already been defined earlier in the explanation.  
+        (j) Avoid using terms like 'consist/consisting,' 'exploration/explore,' 'key component,' and 'necessary,' as well as adjectives like 'revolutionizing,' 'innovative,' or similar descriptors.
         (k) When discussing the current disclosure, use definitive language.  
         (l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.  
-        (m) If a term requires an abbreviation, define the full term only once upon its first mention. Use only the abbreviation for all subsequent references, avoiding repetition of the full term. Ensure clarity and consistency throughout the explanation.
-        (n) Never use 'consist' or any variation of this verb when generating the explanation.
         
-        Step-17: Avoid using unnecessary adjectives like "revolutionizing," "innovative," or similar descriptors throughout the entire explanation for every slide. Ensure descriptions are clear, factual, and focused strictly on the content without embellishments.  
+        Step-16: I expect you to provide a clear and consistent explanation based on the image. There's no need to mention the steps you're following, use unnecessary formatting (such as bold text), or include unrelated details, topics, or subtopics in your response. Focus solely on delivering a straightforward, cohesive explanation, without describing your process or referring to the current step. Just provide the explanation—nothing more.  
         
-        Step-18: I expect you to provide a clear and consistent explanation based on the image. There's no need to mention the steps you're following, use unnecessary formatting (such as bold text), or include unrelated details, topics, or subtopics in your response. Focus solely on delivering a straightforward, cohesive explanation, without describing your process or referring to the current step. Just provide the explanation—nothing more.  
-        """  
-  
+        Step-17: Avoid expanding abbreviations under any circumstances. Use abbreviations exactly as they appear in the extracted content. If an abbreviation is present, reproduce it as is, without repeating or expanding it at any point throughout the entire explanation.
+
+        Step-18: If Slide 3 is detected and labeled as sketches, ignore the standard figure referencing prompt and use the following description instead:
+        "Referring to Figures 3(a) and 3(b), aspects of the present disclosure include detailed sketches that illustrate two main parts: the process of light interaction with a photonic structure and a cross-sectional view of a device for sample analysis. Figure 3(a) depicts the process of light interaction with a photonic structure. In this figure, a stick figure holds a light source, directing light towards a spherical structure composed of hexagonal cells, indicating light entry into a photonic crystal. The directional flow shows light being channeled and guided through the photonic crystal, eventually exiting at specific points, possibly for analysis or detection purposes. The bottom part of Figure 3(a) shows a detailed view of the photonic crystal, where light paths are enhanced within the structure's cavity, leading to concentrated points. These points are marked as 'L' for light sources and 'M' for photodetectors, indicating locations where light is manipulated and detected. Figure 3(b) provides a cross-sectional view of a device used for sample analysis. The directional flow starts with a sample being introduced into an enhancement cavity, marked as 'L', highlighting the area where the sample interaction is maximized. Adjacent to this, 'P' indicates a position where possibly a photodetector or related component is situated to monitor the interaction. The flow continues as the sample interacts within the cavity, and Bragg gratings on either side control the entry and exit of light or other forms of energy. The flow of air is managed via 'air out' pathways, ensuring a controlled environment for the sample. Below this setup, a filter is positioned to manage the light or other flow, ensuring only desired wavelengths or particles pass through. Both Figures 3(a) and 3(b) work together to illustrate the operational flow of guiding and enhancing light through photonic structures for efficient sample analysis. Figure 3(a) explains the initial process of light manipulation through a photonic crystal, while Figure 3(b) shows the subsequent application in a device designed for analyzing samples, providing a continuous and coherent explanation of the overall process."
+        """   
         data = {  
             "model": model,  
             "messages": [  
                 {"role": "system", "content": "You are a helpful assistant that responds in Markdown."},  
-                {"role": "user", "content": [  
-                    {"type": "text", "text": prompt},  
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}  
-                ]}  
+                {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}]}  
             ],  
             "temperature": temperature  
         }  
@@ -423,8 +435,13 @@ def sanitize_text(text):
   
 def ensure_proper_spacing(text):  
     if text:  
-        return text.replace('. ', '. ').replace('. ', '. ')  
+        # Fix spacing issues after periods  
+        text = re.sub(r'\.(?!\s)', '. ', text)  # Ensure space after period  
+        text = re.sub(r'\s+', ' ', text)  # Ensure single space between words  
+        text = re.sub(r'(\.\s+)(\w)', lambda match: match.group(1) + match.group(2).upper(), text)  # Capitalize first letter after period  
+        text = text[0].upper() + text[1:]  # Ensure the first letter of the text is capitalized  
     return text  
+  
   
 def save_content_to_word(aggregated_content, output_file_name, extracted_images, theme):  
     doc = Document()  
@@ -461,7 +478,7 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images,
     output = BytesIO()  
     doc.save(output)  
     output.seek(0)  
-    return output  
+    return output    
   
 def extract_and_clean_page_image(page, top_mask, bottom_mask, left_mask, right_mask):  
     # Get the page as an image  
@@ -538,7 +555,7 @@ def identify_low_quality_slides(text_content, image_slides):
         if any(generic in slide['text'].lower() for generic in ["introduction", "thank you", "summary", "inventor details"]):  
             low_quality_slides.add(slide_number)  
     return low_quality_slides  
-  
+
 def upload_to_blob_storage(file_name, file_data):  
     try:  
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=file_name)  
@@ -554,7 +571,7 @@ def download_from_blob_storage(file_name):
         return BytesIO(blob_data)  
     except Exception as e:  
         st.error(f"Failed to download {file_name} from Azure Blob Storage: {e}")  
-        return None  
+        return None 
   
 def main():  
     st.title("PPT Insights Extractor")  
@@ -687,4 +704,4 @@ def main():
             st.error(f"An error occurred: {e}")  
   
 if __name__ == "__main__":  
-    main()   
+    main()     
