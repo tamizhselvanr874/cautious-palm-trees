@@ -234,7 +234,7 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         10. Use LaTeX formatting for all mathematical symbols, equations, subscripting, and superscripting to ensure they are displayed correctly in the output.  
         11. Accurately represent and contextually retain programmatic terms or equations.
         12. Avoid expanding abbreviations under any circumstances. Use abbreviations exactly as they appear in the extracted content. If an abbreviation is present, reproduce it as is, without repeating or expanding it at any point throughout the entire explanation.
-        13. Avoid using terms like 'consist/consisting,' 'exploration/explore,' 'key component,' and 'necessary,' as well as adjectives like 'revolutionizing,' 'innovative,' or similar descriptors.
+        13. Strictly avoid using the following words and phrases in your explanations: 'consist,' 'consisting,' 'necessary,' 'explore,' 'exploration,' 'key component,' 'revolutionizing,' 'innovative,' or any similar adjectives.
         {slide_text}  
         """  
   
@@ -352,20 +352,19 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         
         Step-14: Start by analyzing the text content of the slide. Reproduce the text as accurately as possible, maintaining the context, and then describe the image. Ensure the explanation smoothly integrates both the text and image content.  
         
-        Step-15: While explaining, ensure that you follow the style guide step-by-step from (a) to (l):  
+        Step-15: While explaining, ensure that you follow the style guide step-by-step from (a) to (j):  
         (a) Remove all listed profanity words.  
         (b) Use passive voice consistently throughout the explanation.  
-        (c) Avoid using the term "consist" or any form of that verb when describing inventions or disclosures.  
-        (d) Replace "Million" with "1,000,000" and "Billion" with "1,000,000,000."  
-        (e) Maintain precision, specificity, and formality in tone. The explanation should be complex, objective, and structured systematically.  
-        (f) Use technical jargon and terminology that is detailed and specific. Maintain an impersonal tone.  
-        (g) Structure the explanation systematically, and use terms like "defined as," "the first set," "the second set," and "for example."  
-        (h) Use conditional and tentative language such as "may include," "in some aspects," "aspects of the present disclosure," "by way of example," "may be," "may further include," "may be used," "may occur," and other similar phrases.  
-        (i) Capture all key wording and phrases accurately. Do not substitute words with synonyms (e.g., maintain "instead" rather than replacing it with "conversely").  
-        (j) Avoid using terms like 'consist/consisting,' 'exploration/explore,' 'key component,' and 'necessary,' as well as adjectives like 'revolutionizing,' 'innovative,' or similar descriptors.
-        (k) When discussing the current disclosure, use definitive language.  
-        (l) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.  
-        
+        (c) Replace "Million" with "1,000,000" and "Billion" with "1,000,000,000."  
+        (d) Maintain precision, specificity, and formality in tone. The explanation should be complex, objective, and structured systematically.  
+        (e) Use technical jargon and terminology that is detailed and specific. Maintain an impersonal tone.  
+        (f) Structure the explanation systematically, and use terms like "defined as," "the first set," "the second set," and "for example."  
+        (g) Use conditional and tentative language such as "may include," "in some aspects," "aspects of the present disclosure," "by way of example," "may be," "may further include," "may be used," "may occur," and other similar phrases.  
+        (h) Capture all key wording and phrases accurately. Do not substitute words with synonyms (e.g., maintain "instead" rather than replacing it with "conversely").  
+        (i) When discussing the current disclosure, use definitive language.  
+        (j) Ensure accurate representation and contextual integration of any figures, flowcharts, or equations referenced in the slide.  
+        (k) Strictly avoid using the following words and phrases in your explanations: 'consist,' 'consisting,' 'necessary,' 'explore,' 'exploration,' 'key component,' 'revolutionizing,' 'innovative,' or any similar adjectives.
+
         Step-16: I expect you to provide a clear and consistent explanation based on the image. There's no need to mention the steps you're following, use unnecessary formatting (such as bold text), or include unrelated details, topics, or subtopics in your response. Focus solely on delivering a straightforward, cohesive explanation, without describing your process or referring to the current step. Just provide the explanation—nothing more.  
         
         Step-17: Avoid expanding abbreviations under any circumstances. Use abbreviations exactly as they appear in the extracted content. If an abbreviation is present, reproduce it as is, without repeating or expanding it at any point throughout the entire explanation.
