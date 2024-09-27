@@ -207,9 +207,7 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
   
         slide_text = slide['text']  
         prompt = f"""       
-        {theme}
-        NOTE: Please adhere strictly to English grammar rules in all generated explanations. Ensure a single space after each full stop, start each sentence with a capital letter, and maintain proper sentence separation for clarity. The text should follow grammatical conventions, be clear and coherent, and read smoothly without any spacing errors or formatting issues. Consistently apply these rules to produce professional, well-structured output.  
-        
+        {theme} 
         I want you to begin with one of the following phrases based on the slide title:  
         
         (a) If and only if the slide title contains the keyword "Background," begin the explanation with "The prior solutions include..." Proceed by discussing only the prior solution presented in the slide. Ensure no mention of any proposal or disclosure occurs at this stage, and strictly limit the explanation to the prior solutions.  
@@ -220,7 +218,7 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         
         The information should be delivered in a structured, clear, and concise paragraph while avoiding phrases like 'The slide presents,' 'discusses,' 'outlines,' or 'content.' Summarize all major points without bullet points.  
         
-        Follow these detailed style guidelines for the generated content from 1 to 13:  
+        Follow these detailed style guidelines for the generated content:      
         
         1. Remove all listed profanity words.  
         2. Use passive voice consistently.  
@@ -298,15 +296,13 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
   
         prompt = f"""
         {theme} 
-        NOTE: Please adhere strictly to English grammar rules in all generated explanations. Ensure a single space after each full stop, start each sentence with a capital letter, and maintain proper sentence separation for clarity. The text should follow grammatical conventions, be clear and coherent, and read smoothly without any spacing errors or formatting issues. Consistently apply these rules to produce professional, well-structured output.   
-        
-        Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, whether it’s a single figure or multiple figures arranged in parallel, adjacent, or as part of a larger visual element.  
-        
-        Step-1(a): If there is a single figure, treat it as one cohesive unit and refer to it as "Referring to Figure{image_ref}" ensuring the entire figure is captured and not divided into smaller parts unless necessary.  
-        
-        Step-1(b): If there are multiple figures, reference each one distinctly using the format: "Referring to Figure{image_ref}(a), Figure{image_ref}(b), and to Figure{image_ref}(c)" ensuring that each figure is described clearly, distinguishing them by their appearance or position.  
-        
-        Step-1(c): Maintain consistency in figure referencing across all slides, ensuring all figures are correctly referenced without breaking cohesive elements into smaller parts unless explicitly required. Accurately describe and reference each figure for clarity.  
+        Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, whether it’s a single figure or multiple figures arranged in parallel, adjacent, or as part of a larger visual element.
+
+        Step-1(a): If there is a single figure, treat it as one cohesive unit and refer to it as "Referring to Figure{image_ref}" ensuring the entire figure is captured and not divided into smaller parts unless necessary.
+
+        Step-1(b): If there are multiple figures, reference each one distinctly using the format: "Referring to Figure{image_ref}(a), Figure{image_ref}(b), and to Figure{image_ref}(c)" ensuring that each figure is described clearly, distinguishing them by their appearance or position.
+
+        Step-1(c): Maintain consistency in figure referencing across all slides, ensuring all figures are correctly referenced without breaking cohesive elements into smaller parts unless explicitly required. Accurately describe and reference each figure for clarity.
         
         Step-2: After listing the slide reference, begin immediately after the comma with one of the following phrases based on the slide title. Ensure that the word directly following the comma starts with a lowercase letter. This rule must be followed consistently for all slides.  
         
