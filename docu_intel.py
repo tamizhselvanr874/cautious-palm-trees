@@ -208,8 +208,6 @@ def generate_text_insights(text_content, visual_slides, text_length, theme, low_
         slide_text = slide['text']  
         prompt = f"""       
         {theme}
-        Strictly follow the steps below in the exact order, without deviation or omission. Each step must be executed precisely as instructed. Any non-compliance is unacceptable. 
-        
         NOTE: Please adhere strictly to English grammar rules in all generated explanations. Ensure a single space after each full stop, start each sentence with a capital letter, and maintain proper sentence separation for clarity. The text should follow grammatical conventions, be clear and coherent, and read smoothly without any spacing errors or formatting issues. Consistently apply these rules to produce professional, well-structured output.  
         
         I want you to begin with one of the following phrases based on the slide title:  
@@ -299,9 +297,7 @@ def generate_image_insights(image_content, text_length, api_key, azure_endpoint,
         }  
   
         prompt = f"""
-        {theme}
-        Strictly follow the steps below in the exact order, without deviation or omission. Each step must be executed precisely as instructed. Any non-compliance is unacceptable.
-
+        {theme} 
         NOTE: Please adhere strictly to English grammar rules in all generated explanations. Ensure a single space after each full stop, start each sentence with a capital letter, and maintain proper sentence separation for clarity. The text should follow grammatical conventions, be clear and coherent, and read smoothly without any spacing errors or formatting issues. Consistently apply these rules to produce professional, well-structured output.   
         
         Step-1: Begin by detecting and listing all figures present in the slide, ensuring no figure is overlooked, whether it’s a single figure or multiple figures arranged in parallel, adjacent, or as part of a larger visual element.  
