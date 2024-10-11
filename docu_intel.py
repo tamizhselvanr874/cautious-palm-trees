@@ -570,14 +570,19 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images,
     for slide in aggregated_content:
         # Ensure slide is a dictionary
         if isinstance(slide, dict):
-            sanitized_title = sanitize_text(slide.get('slide_title', 'Unknown Title'))  # Default to 'Unknown Title' if missing
-            sanitized_content = sanitize_text(slide.get('content', ''))  # Default to empty string if no content
+            slide_number = slide.get('slide_number', 'Unknown Slide')
+            slide_title = slide.get('slide_title', 'Unknown Title')
+            sanitized_title = sanitize_text(slide_title)
+            sanitized_content = sanitize_text(slide.get('content', ''))
             properly_spaced_content = ensure_proper_spacing(sanitized_content)
-            slide_number = slide.get('slide_number', 'Unknown Slide')  # Handle missing slide number
             
             # Check if slide_number is string or integer
             slide_numbers = slide_number if isinstance(slide_number, str) else f"[[{slide_number}]]"
-            
+
+            # Debugging print to ensure content is correct
+            print(f"Slide Number: {slide_numbers}, Title: {sanitized_title}, Content: {properly_spaced_content}")
+
+            # Adding content to the document
             doc.add_heading(f"{slide_numbers}, {sanitized_title}", level=1)
             if properly_spaced_content:  # Only add content if it exists
                 doc.add_paragraph(properly_spaced_content)
@@ -585,14 +590,14 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images,
             print(f"Invalid slide structure: {slide}")
 
     # Add extracted images after the generated content
-    # if extracted_images:
-    #     doc.add_heading("Extracted Images", level=1)
-    #     for idx, (image, slide_number) in enumerate(extracted_images):
-    #         _, buffer = cv2.imencode('.png', image)
-    #         image_stream = BytesIO(buffer)
-    #         doc.add_paragraph(f"Image from Slide {slide_number}:")
-    #         doc.add_picture(image_stream, width=doc.sections[0].page_width - doc.sections[0].left_margin - doc.sections[0].right_margin)
-    #         doc.add_paragraph("\n")  # Add space after image
+    if extracted_images:
+        doc.add_heading("Extracted Images", level=1)
+        for idx, (image, slide_number) in enumerate(extracted_images):
+            _, buffer = cv2.imencode('.png', image)
+            image_stream = BytesIO(buffer)
+            doc.add_paragraph(f"Image from Slide {slide_number}:")
+            doc.add_picture(image_stream, width=doc.sections[0].page_width - doc.sections[0].left_margin - doc.sections[0].right_margin)
+            doc.add_paragraph("\n")  # Add space after image
 
     # Add the theme at the end of the document
     doc.add_heading("Overall Theme", level=1)
@@ -602,6 +607,7 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images,
     doc.save(output)
     output.seek(0)
     return output
+
 
 
 def extract_and_clean_page_image(page, top_mask, bottom_mask, left_mask, right_mask):  
@@ -779,17 +785,17 @@ def main():
     
     # File uploader for PDF
     uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
-
-    pdf_filename = uploaded_file.name  
-    base_filename = os.path.splitext(pdf_filename)[0]  
-    output_word_filename = f"{base_filename}.docx"  
-    
-    # Select text length
-    text_length = st.selectbox("Select Text Length", ["Standard", "Blend", "Creative"])
-    
-    # Input for low-quality slides
     
     if st.button("Start Generate"):
+        pdf_filename = uploaded_file.name  
+        base_filename = os.path.splitext(pdf_filename)[0]  
+        output_word_filename = f"{base_filename}.docx"  
+        
+        # Select text length
+        text_length = st.selectbox("Select Text Length", ["Standard", "Blend", "Creative"])
+        
+        # Input for low-quality slides
+
         with open("uploaded_pdf.pdf", "wb") as f:
             f.write(uploaded_file.getbuffer())
 
