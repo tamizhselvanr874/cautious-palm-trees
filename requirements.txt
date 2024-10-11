@@ -5,3 +5,5 @@ opencv-python-headless
 numpy
 Pillow
 requests
+azure-storage-blob
+azure-core
