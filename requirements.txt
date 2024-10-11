@@ -1,7 +1,7 @@
 streamlit
 PyMuPDF
 python-docx
-opencv-python
+opencv-python-headless
 numpy
 Pillow
 requests
