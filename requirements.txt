@@ -1,10 +1,7 @@
 streamlit
-python-pptx
+PyMuPDF
+python-docx
+opencv-python
+numpy
 Pillow
 requests
-python-docx
-PyMuPDF
-opencv-python-headless
-numpy
-azure-storage-blob
-azure-core
