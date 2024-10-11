@@ -577,17 +577,19 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images,
             properly_spaced_content = ensure_proper_spacing(sanitized_content)
             
             # Check if slide_number is string or integer
-            slide_numbers = slide_number if isinstance(slide_number, str) else f"[[{slide_number}]]"
+            slide_numbers = slide_number if isinstance(slide_number, str) else f"{slide_number}"
 
-            # Debugging print to ensure content is correct
-            print(f"Slide Number: {slide_numbers}, Title: {sanitized_title}, Content: {properly_spaced_content}")
+            # # Debugging print to ensure content is correct
+            # doc.add_heading(f"[[{slide_numbers}, {sanitized_title}]]")
+            # doc.add_paragraph(f"{properly_spaced_content}")
 
             # Adding content to the document
-            doc.add_heading(f"{slide_numbers}, {sanitized_title}", level=1)
-            if properly_spaced_content:  # Only add content if it exists
-                doc.add_paragraph(properly_spaced_content)
+            doc.add_heading(f"[[{slide_numbers}, {sanitized_title}]]", level=1)
+            doc.add_paragraph(f"{slide['insight']}")
         else:
             print(f"Invalid slide structure: {slide}")
+            # doc.add_heading(f"[[{slide['slide_numbers']}, {slide['sanitized_title']}]]")
+            # doc.add_paragraph(f"{slide['insight']}")
 
     # Add extracted images after the generated content
     if extracted_images:
@@ -707,8 +709,12 @@ def aggregate_content(text_insights, image_insights, slide_data):
         slide_title = img['slide_title']
         image_insight = img['insight']
         
-        content = f"[[{slide_number}, {slide_title}]]{image_insight}"
-        aggregated_content.append({'slide_number': slide_number, 'content': content})
+        # Collect content with slide number and title in separate fields
+        aggregated_content.append({
+            'slide_number': slide_number,
+            'slide_title': slide_title,
+            'insight': image_insight
+        })
         processed_slide_numbers.add(slide_number)  # Track processed slide numbers
 
     # Step 2: Add text insights for slides that are not in image_insights
@@ -719,15 +725,19 @@ def aggregate_content(text_insights, image_insights, slide_data):
 
         # Only add text insights if the slide number wasn't already processed
         if slide_number not in processed_slide_numbers:
-            content = f"[[{slide_number}, {slide_title}]]{text_insight}"
-            aggregated_content.append({'slide_number': slide_number, 'content': content})
+            aggregated_content.append({
+                'slide_number': slide_number,
+                'slide_title': slide_title,
+                'insight': text_insight
+            })
             processed_slide_numbers.add(slide_number)  # Mark as processed
 
     # Step 3: Sort the aggregated content by slide number in ascending order
     aggregated_content = sorted(aggregated_content, key=lambda x: x['slide_number'])
 
-    # Step 4: Extract and return the content as a list of strings
-    return [item['content'] for item in aggregated_content]
+    # Step 4: Return the aggregated content with the required structure
+    return aggregated_content
+
 
 
 def identify_low_quality_slides(text_content, image_slides):  
@@ -837,7 +847,7 @@ def main():
             extracted_images = extract_images_from_pdf("uploaded_pdf.pdf", top_mask, bottom_mask, left_mask, right_mask, low_quality_slides) 
                             
             aggregated_content = aggregate_content(text_insights, insights, slide_data)
-            for insight in text_insights:
+            for insight in aggregated_content:
                 st.subheader(f"[[{insight['slide_number']}, {insight['slide_title']}]]")
                 st.markdown(insight['insight'])
 
