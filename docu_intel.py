@@ -124,6 +124,9 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
         # Remove all listed profanity words. Example for your reference: {patent_profanity_words}. 
         
         prompt = f"""{pa}
+
+        Important Note: While generating content, avoid using the following words and their related forms: 'necessity,' 'necessary', 'necessitate', 'necessitating', 'necessitate,' 'consist,' 'consisting,' 'explore,' 'exploration,' 'key component,' 'revolutionizing,' 'innovative,' or any similar adjectives. Instead, use alternative words or phrases as replacements.
+
         Step 1: Detect and list all figures on the slide, ensuring none are missed. This includes figures arranged in parallel, adjacent, or stacked. Treat each diagram, sketch, or flowchart as a separate figure.
         [ Special Case: If no figures (images, diagrams, sketches, or flowcharts) are present, follow these instructions based on the slide title:
 
@@ -185,7 +188,7 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
             Follow this with a detailed explanation.
         Step 14: Analyze and reproduce the text content before describing any images. Integrate both text and image content smoothly.
         Step 15: Style Guide Instructions:
-            (a) Remove all listed profanity words example: 'necessary', 'necessitate', 'necessitating'. 
+            (a) Remove all listed profanity words example: {patent_profanity_words}. 
             (b) Use passive voice throughout.
             (c) Replace "Million" and "Billion" with "1,000,000" and "1,000,000,000."
             (d) Keep the tone precise, formal, and objective.
@@ -197,10 +200,8 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
             (j) Ensure accurate representation of figures, flowcharts, and equations.
             (k) Avoid specific words like "revolutionizing" or "innovative."
             (l) Remove redundant expansion of abbreviations.
-            (m) Strictly avoid using the following words and phrases in your explanations: 'necessary', 'necessitate', 'necessitating', 'consist,' 'consisting,' 'necessary,' 'explore,' 'exploration,' 'key component,' 'revolutionizing,' 'innovative,' or any similar adjectives. 
 
         Important Note: Return content only in a single paragraph.
-        Important Note: Remove all listed profanity words example: 'necessary', 'necessitate', 'necessitating'.
         Important Note: Give importance to equations that are presented in the Slide.
         Important Note: Don't consider equation as Images.
         Important Note: Do not expand abbreviations on its own unless mentioned in the slide. 
@@ -264,6 +265,8 @@ def generate_text_insights(text_content, text_length, theme, low_quality_slides,
         slide_text = slide['text'] 
         
         prompt = f"""{pa}
+        Important Note: While generating content, avoid using the following words and their related forms: 'necessity,' 'necessary', 'necessitate', 'necessitating', 'consist,' 'consisting,' 'explore,' 'exploration,' 'key component,' 'revolutionizing,' 'innovative,' or any similar adjectives. Instead, use alternative words or phrases as replacements.
+
         I want you to begin with one of the following phrases based on the slide title: 
         
         (a) If the title includes "Invention" or "Proposal," start with:
@@ -292,8 +295,7 @@ def generate_text_insights(text_content, text_length, theme, low_quality_slides,
             (i) Use definitive language when discussing the current disclosure.
             (j) Ensure accurate representation of figures, flowcharts, and equations.
             (k) Avoid specific words like "revolutionizing" or "innovative."
-            (l) Remove redundant expansion of abbreviations.
-            (m) Strictly avoid using the following words and phrases in your explanations: 'consist,' 'consisting,' 'necessary,' 'explore,' 'exploration,' 'key component,' 'revolutionizing,' 'innovative,' or any similar adjectives. 
+            (l) Remove redundant expansion of abbreviations. 
             
         Important Note: Return content only in a single paragraph.
         Important Note: Give importance to equations that are presented in the Slide.
@@ -313,7 +315,7 @@ def generate_text_insights(text_content, text_length, theme, low_quality_slides,
   
         data = {  
             "model": model,  
-            "messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": prompt}],  
+            "messages": [{"role": "system", "content": f"{pa}"}, {"role": "user", "content": prompt}],  
             "temperature": temperature  
         }  
   
@@ -716,7 +718,7 @@ def aggregate_content(text_insights, image_insights, slide_data):
             'insight': image_insight
         })
         processed_slide_numbers.add(slide_number)  # Track processed slide numbers
-
+ 
     # Step 2: Add text insights for slides that are not in image_insights
     for text in text_insights:
         slide_number = int(text['slide_number'])  # Convert slide number to int for sorting later
@@ -739,19 +741,30 @@ def aggregate_content(text_insights, image_insights, slide_data):
     return aggregated_content
 
 
-
 def identify_low_quality_slides(text_content, image_slides):  
     low_quality_slides = set()  
+
+    # Ensure all elements in image_slides are integers for consistent comparison
+    image_slides = {int(slide['slide_number']) for slide in image_slides if 'slide_number' in slide}  # Extract and convert slide numbers
+
     for slide in text_content:  
-        slide_number = slide['slide_number']  
-        if slide_number in image_slides:  
+        slide_number = int(slide['slide_number'])  # Convert slide_number to an integer if it's not already
+        
+        # Skip if the slide number is in image_slides
+        if slide_number in image_slides: 
             continue  
+        
+        # Check word count
         word_count = len(slide['text'].split())  
         if word_count < 30:  
             low_quality_slides.add(slide_number)  
+        
+        # Check for generic terms
         if any(generic in slide['text'].lower() for generic in ["introduction", "thank you", "inventor details"]):  
             low_quality_slides.add(slide_number)
+
     return low_quality_slides  
+
 
 
 # Streamlit app interface update
@@ -826,7 +839,7 @@ def main():
         title = detect_title_from_pdf("uploaded_pdf.pdf")
         image_content = detect_images_from_pdf("uploaded_pdf.pdf")
 
-        low_quality_slides = identify_low_quality_slides(text_content,image_content)        
+        low_quality_slides = identify_low_quality_slides(text_content, image_content)        
         slide_data = extract_titles_from_images(title)
         
         if image_content:
