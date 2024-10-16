@@ -11,6 +11,9 @@ from PIL import Image
 import requests
 import base64
 import json
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient   # type: ignore
+from azure.core.exceptions import ResourceExistsError  
+import tempfile  
 
 # Azure OpenAI credentials
 azure_endpoint = "https://gpt-4omniwithimages.openai.azure.com/"
@@ -18,6 +21,33 @@ api_key = "6e98566acaf24997baa39039b6e6d183"
 api_version = "2024-02-01"
 model = "GPT-40-mini"
 
+
+# Azure Blob Storage credentials  
+connection_string = "DefaultEndpointsProtocol=https;AccountName=patentpptapp;AccountKey=4988gBY4D2RU4zdy1NCUoORdCRYvoOziWSHK9rOVHxy9pFXfKenRqyE/P+tpFpfmNObUm/zOCjeY+AStiCS3uw==;EndpointSuffix=core.windows.net"  
+container_name = "ppt-storage"  
+  
+blob_service_client = BlobServiceClient.from_connection_string(connection_string)  
+  
+# URL of your Azure function endpoint  
+azure_function_url = 'https://doc2pdf.azurewebsites.net/api/HttpTrigger1'   
+  
+# Function to convert PPT to PDF using Azure Function  
+def ppt_to_pdf(ppt_file, pdf_file):  
+    mime_type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'  
+    headers = {  
+        "Content-Type": "application/octet-stream",  
+        "Content-Type-Actual": mime_type  
+    }  
+    with open(ppt_file, 'rb') as file:  
+        response = requests.post(azure_function_url, data=file.read(), headers=headers)  
+        if response.status_code == 200:  
+            with open(pdf_file, 'wb') as pdf_out:  
+                pdf_out.write(response.content)  
+            return True  
+        else:  
+            st.error(f"File conversion failed with status code: {response.status_code}")  
+            st.error(f"Response: {response.text}")  
+            return False  
 
 
 patent_profanity_words = [  
@@ -97,7 +127,7 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
     insights = []
     
     # Set temperature based on text length
-    temperature = 0.3 if text_length == "Standard" else 0.5 if text_length == "Blend" else 0.7
+    temperature = 0.0 if text_length == "Standard" else 0.5 if text_length == "Blend" else 0.7
     
     for image_data in image_content:  
         slide_number = image_data['slide_number']  
@@ -105,7 +135,7 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
             continue  # Skip low-quality slides  
   
         base64_image = encode_image(image_data['image'])  
-  
+
         # Determine how many images are on the slide  
         images_on_slide = [img for img in image_content if img['slide_number'] == slide_number]  
         image_ref = f"figure {slide_number}"  
@@ -124,88 +154,42 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
         # Remove all listed profanity words. Example for your reference: {patent_profanity_words}. 
         
         prompt = f"""{pa}
+                    Important Note: Avoid using words like 'contain', 'necessity,' 'necessary,' 'necessitate,' 'consist,' 'explore,' 'key component,' 'revolutionizing,' 'innovative,' or similar terms. Use alternatives instead. Return the content in one paragraph only.
+                    Important Note: Avoid expanding abbreviations unless instructed in the given slide. Only expand abbreviations once.
 
-        Important Note: While generating content, avoid using the following words and their related forms: 'necessity,' 'necessary', 'necessitate', 'necessitating', 'necessitate,' 'consist,' 'consisting,' 'explore,' 'exploration,' 'key component,' 'revolutionizing,' 'innovative,' or any similar adjectives. Instead, use alternative words or phrases as replacements.
+                    Figure Detection:
+                        Identify and list all figures (diagrams, sketches, flowcharts) on the slide. Each figure, even if stacked or side by side, should be treated as separate.
 
-        Step 1: Detect and list all figures on the slide, ensuring none are missed. This includes figures arranged in parallel, adjacent, or stacked. Treat each diagram, sketch, or flowchart as a separate figure.
-        [ Special Case: If no figures (images, diagrams, sketches, or flowcharts) are present, follow these instructions based on the slide title:
+                    If no figures are found, follow these instructions based on the slide title:
+                    ```\ If the title doesn’t contain "Background" or "Proposal": Start with "Aspects of the present disclosure include..." and focus on the main points.
+                        If the title includes "Invention" or "Proposal": Start with "The present disclosure includes..." and focus on the invention or proposal.
+                        If the title includes "Background" or "Motivation": Start with "The prior solutions include..." and focus only on prior solutions. /```
 
-        (a) If the title includes "Invention" or "Proposal," start with:
-        "The present disclosure includes..."
-        Focus on the proposal or invention, without mentioning background information.
-
-        (b) If the title includes "Background" or "Motivation," start with:
-        "The prior solutions include..."
-        Focus on prior solutions only, without including proposals.
-
-        (c) If the title doesn't include "Background" or "Proposal," start with:
-        "Aspects of the present disclosure include..."
-        Focus on the slide's main points, without mentioning prior solutions or proposals. 
-
-        Write a clear, concise paragraph without using phrases like "The slide presents" or "discusses." 
-        Ignore all other steps (1a-14) and prioritize these rules.]
-
-        Step 1(a): Reference all figures explicitly and in order, like:
-            "Referring to Figure {image_ref}(a), Figure {image_ref}(b)…"
-            For multiple figures, ensure each is mentioned and referenced individually.
-
-        Step 1(b): Check that all figures are referenced in order. The references must come before any detailed descriptions.
-        
-        Step 1(c): After referencing, describe each figure individually in order:
-            "Figure {image_ref}(a) illustrates..."
-            "Figure {image_ref}(b) shows..."
-            Explain each figure thoroughly, covering its role and relevance.
-        
-        Step 1(d): If any figures are missing or references are combined (e.g., "the figures" instead of individually), flag the response and note the issue.
-        
-        Step 1(e): For slides with complex or overlapping figures, explain their relationships clearly, using precise references like:
-        "Figure {image_ref}(a) interacts with Figure {image_ref}(b)…"
-        Step 2-5: Adjust your explanation based on the slide title:        
-            (2) If the title doesn't contain "Background" or "Proposal," start with:
-            "Aspects of the present disclosure include..."
-            Focus on the main points.
-
-            (3) If the title contains "Background" or "Motivation," start with:
-            "The prior solutions include..."
-            Focus only on prior solutions.
-
-            (4) If the title contains "Proposal," start with:
-            "The present disclosure includes..."
-            Focus on the proposal or invention only.
-        Step 6: For graphs, explain the overall meaning and describe the x and y axes in detail.
-        Step 7: For images with perspective views, identify and describe the perspective, including angles, depth, and spatial relationships.
-        Step 8: Refer to images specifically, avoiding labels like "left figure" or "right figure."
-        Step 9: Ensure any use of the word "example" is reproduced exactly as shown and fully explained. Avoid combining examples into a single sentence without proper references.        
-                Additionally, I have a slide with the following bullet points:  
-                Point 1: [Your first point]  
-                Point 2: [Your second point]  
-                Point 3: [Your third point, which includes examples Eg 1 and Eg 2]  
-                Please generate a cohesive paragraph that integrates these points while ensuring that all examples are specifically called out and fully explained. Always use the word "example" each time it appears in the content, and maintain clarity and continuity in the overall description.  
-                        
-        Step 10-12: Avoid starting explanations with phrases like "The slide," "The text," or "The image" for a natural flow.        
-        Step 13: After referencing a figure, always start the next sentence with:
-            "In this aspect..."
-            Follow this with a detailed explanation.
-        Step 14: Analyze and reproduce the text content before describing any images. Integrate both text and image content smoothly.
-        Step 15: Style Guide Instructions:
-            (a) Remove all listed profanity words example: {patent_profanity_words}. 
-            (b) Use passive voice throughout.
-            (c) Replace "Million" and "Billion" with "1,000,000" and "1,000,000,000."
-            (d) Keep the tone precise, formal, and objective.
-            (e) Use detailed technical jargon.
-            (f) Organize explanations systematically with terms like "defined as" or "for example."
-            (g) Use conditional language like "may include" or "by way of example."
-            (h) Maintain exact wording—don't replace terms with synonyms.
-            (i) Use definitive language when discussing the current disclosure.
-            (j) Ensure accurate representation of figures, flowcharts, and equations.
-            (k) Avoid specific words like "revolutionizing" or "innovative."
-            (l) Remove redundant expansion of abbreviations.
-
-        Important Note: Return content only in a single paragraph.
-        Important Note: Give importance to equations that are presented in the Slide.
-        Important Note: Don't consider equation as Images.
-        Important Note: Do not expand abbreviations on its own unless mentioned in the slide. 
-        Important Note: Only expand abbreviations one time throughout the entire content.
+                    If figures are present, follow these steps based on the slide title:
+                        Mention and reference each figure in order (e.g., "Referring to Figure {slide_number}(a), Figure {slide_number}(b)..."). Clearly explain each figure, covering its role and relevance.
+                        Note: If the figure number is already mentioned on the slide, ignore it and instead use "{slide_number}" as the figure number.
+                        Steps:
+                       ```\ Reference figures in order: "Referring to Figure {slide_number}(a), Figure {slide_number}(b)…" Each figure must be mentioned individually.
+                            Check that figures are referenced in order before any detailed descriptions.
+                            After referencing, describe each figure individually: "Figure {slide_number}(a) illustrates...", "Figure {slide_number}(b) shows..." Explain the figures in detail.
+                            Flag any issues if figures are missing or combined improperly (e.g., "the figures" instead of individual references).
+                            For complex or overlapping figures, explain their relationships clearly, such as "Figure {slide_number}(a) interacts with Figure {slide_number}(b)..."
+                            After Figure Reference:
+                                Begin the next sentence with: "In this aspect..." followed by a detailed explanation.
+                    
+                            For Graphs:
+                                Describe the x and y axes and explain the overall meaning.
+                            For Images:
+                                Identify angles, depth, and spatial relationships for images with perspective views. Refer to images specifically (avoid terms like "left" or "right" figure).
+                            Natural Flow:
+                                Avoid phrases like "The slide shows..." or "The image presents..." to ensure a natural flow. /```
+                    
+                    Style Guide:
+                    ```\ Use passive voice, except for discussing the present disclosure (use active voice like "provides").
+                        Replace "Million" and "Billion" with "1,000,000" and "1,000,000,000."
+                        Avoid using "invention" or "objective," replace with "present disclosure."
+                        Use technical terms and Avoid expanding abbreviations unless instructed. Only expand abbreviations once.
+                        Turn bullet points into sentences without summarizing them. /```
         """   
 
         data = {  
@@ -249,7 +233,7 @@ def generate_text_insights(text_content, text_length, theme, low_quality_slides,
   
     # Set temperature based on text_length  
     if text_length == "Standard":  
-        temperature = 0.3  
+        temperature = 0.0  
     elif text_length == "Blend":  
         temperature = 0.5  
     elif text_length == "Creative":  
@@ -741,32 +725,133 @@ def aggregate_content(text_insights, image_insights, slide_data):
     return aggregated_content
 
 
-def identify_low_quality_slides(text_content, image_slides):  
+def identify_low_quality_slides(text_content, image_slides): 
     low_quality_slides = set()  
 
-    # Ensure all elements in image_slides are integers for consistent comparison
-    image_slides = {int(slide['slide_number']) for slide in image_slides if 'slide_number' in slide}  # Extract and convert slide numbers
+    # Ensure all elements in image_slides have a valid 'slide_number' key
+    image_slides_dict = {int(slide['slide_number']): slide for slide in image_slides if 'slide_number' in slide}  # Extract slide numbers and create a dict for easier access
 
     for slide in text_content:  
         slide_number = int(slide['slide_number'])  # Convert slide_number to an integer if it's not already
         
         # Skip if the slide number is in image_slides
-        if slide_number in image_slides: 
-            continue  
-        
-        # Check word count
+        if slide_number in image_slides_dict:   
+            # st.write(f"Processing image slide {slide_number}")
+            image_slide_data = image_slides_dict[slide_number]  # Access the correct slide data
+            
+            # Pass the individual slide dictionary to the is_low_quality_image_slide function
+            if is_low_quality_image_slide(image_slide_data):
+                low_quality_slides.add(slide_number)
+                
+            continue  # Skip further checks for image slides
+
+        # Check word count for text slides
         word_count = len(slide['text'].split())  
         if word_count < 30:  
             low_quality_slides.add(slide_number)  
         
         # Check for generic terms
-        if any(generic in slide['text'].lower() for generic in ["introduction", "thank you", "inventor details"]):  
+        if any(generic in slide['text'].lower() for generic in ["introduction", "thank you", "inventor details", "contents"]):  
             low_quality_slides.add(slide_number)
+            
+    return low_quality_slides
 
-    return low_quality_slides  
+
+def is_low_quality_image_slide(image_data):
+    """Send image slide data to an LLM to check whether the slide is low quality."""
+  
+    base64_image = encode_image(image_data['image'])  # Access the image from the individual slide dictionary
+        
+    # Create prompt to assess the slide based on the slide number
+    prompt = f"""
+    State whether the slide is low quality. 
+    If it mostly contains text, check the slide has more than 30 words if it has then consider it high quality, 
+    If the slide has less then 20 words without any image in it then consider it low quality.
+    If it contains diagrams, figures, graphs, tables, charts, or images, consider it high quality. 
+    If the title contains 'summary' then check for whether the slide has more than 30 words if it has then consider it high quality.
+    If the title contains 'introduction', 'contents', 'thank you', or 'inventor details', consider it low quality.
+    """
+    
+    data = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "You are an image slide quality assessment model."},
+            {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}]}  
+            ],
+        "max_tokens": 100,
+        "temperature": 0.3
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "api-key": api_key
+    }
+
+    response = requests.post(
+        f"{azure_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
+        headers=headers,
+        data=json.dumps(data)
+    )
+
+    if response.status_code == 200:
+        assessment = response.json()['choices'][0]['message']['content']
+        # st.success("low quality" in assessment.lower())
+        return "low quality" in assessment.lower()
+    else:
+        st.write(f"Error processing slide: {response.status_code}")
+        return False
+    
+
+# def encode_image(image_path):
+#     """Convert image to base64 for sending to LLM."""
+#     with open(image_path, "rb") as image_file:
+#         return base64.b64encode(image_file.read()).decode('utf-8')
+
+
+# def identify_low_quality_slides(text_content, image_slides): 
+#     low_quality_slides = set()  
+
+#     # Ensure all elements in image_slides are integers for consistent comparison
+#     image_slides = {int(slide['slide_number']) for slide in image_slides if 'slide_number' in slide}  # Extract and convert slide numbers
+
+#     for slide in text_content:  
+#         slide_number = int(slide['slide_number'])  # Convert slide_number to an integer if it's not already
+        
+#         # Skip if the slide number is in image_slides
+#         if slide_number in image_slides:   
+#             st.write(slide_number)
+             
+#         # Check word count
+#         word_count = len(slide['text'].split())  
+#         if word_count < 30:  
+#             low_quality_slides.add(slide_number)  
+        
+#         # Check for generic terms
+#         if any(generic in slide['text'].lower() for generic in ["introduction", "thank you", "inventor details"]):  
+#             low_quality_slides.add(slide_number)
+            
+#     return low_quality_slides  
 
 
 
+
+def upload_to_blob_storage(file_name, file_data):  
+    try:  
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=file_name)  
+        blob_client.upload_blob(file_data, overwrite=True)  
+        st.info(f"{file_name} uploaded to Azure Blob Storage.")  
+    except Exception as e:  
+        st.error(f"Failed to upload {file_name} to Azure Blob Storage: {e}")  
+        
+def download_from_blob_storage(file_name):  
+    try:  
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=file_name)  
+        blob_data = blob_client.download_blob().readall()  
+        return BytesIO(blob_data)  
+    except Exception as e:  
+        st.error(f"Failed to download {file_name} from Azure Blob Storage: {e}")  
+        return None 
+    
 # Streamlit app interface update
 def main():
     st.title("PATENT APPLICATION")
@@ -807,20 +892,44 @@ def main():
         st.session_state.right_mask = right_mask  
     
     # File uploader for PDF
-    uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
-    
+
+    uploaded_ppt = st.file_uploader("Upload a PPT file", type=["pptx"]) 
+        
     # Select text length
     text_length = st.selectbox("Select Text Length", ["Standard", "Blend", "Creative"])
 
     if st.button("Start Generate"):
-        pdf_filename = uploaded_file.name  
-        base_filename = os.path.splitext(pdf_filename)[0]  
+        # Extract the base name of the uploaded PPT file  
+        ppt_filename = uploaded_ppt.name  
+        base_filename = os.path.splitext(ppt_filename)[0]  
         output_word_filename = f"{base_filename}.docx"  
-                
-        # Input for low-quality slides
+          
+        # Save uploaded PPT to a temporary file and upload to Azure Blob Storage  
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pptx") as temp_ppt_file:  
+            temp_ppt_file.write(uploaded_ppt.read())  
+            temp_ppt_file_path = temp_ppt_file.name  
+                        
+        upload_to_blob_storage(ppt_filename, open(temp_ppt_file_path, "rb"))  
+        
+        # Download the PPT file from Azure Blob Storage  
+        ppt_blob = download_from_blob_storage(ppt_filename)  
+        if not ppt_blob:  
+            st.error("Failed to download PPT file from Azure Blob Storage.")  
+            return  
+            
+        # Convert PPT to PDF  
+        with open("uploaded_ppt.pptx", "wb") as f:  
+            f.write(ppt_blob.read())  
+                    
+        if not ppt_to_pdf("uploaded_ppt.pptx", "uploaded_pdf.pdf"):  
+            st.error("PDF conversion failed. Please check the uploaded PPT file.")  
+            return  
+        
+        # uploaded_file = "uploaded_pdf.pdf"
 
-        with open("uploaded_pdf.pdf", "wb") as f:
-            f.write(uploaded_file.getbuffer())
+
+        # with open("uploaded_pdf.pdf", "wb") as f:
+        #     f.write(uploaded_file.getbuffer())
 
         # Extract text and titles using LLM
         # slide_data = extract_titles_from_images("uploaded_pdf.pdf")
@@ -832,14 +941,16 @@ def main():
             
             # Generate overall theme using the extracted text content
 
+        st.success("Converted to PDF completed!")
         text_content = extract_text_from_pdf("uploaded_pdf.pdf")
         # Extract images
         
-
         title = detect_title_from_pdf("uploaded_pdf.pdf")
         image_content = detect_images_from_pdf("uploaded_pdf.pdf")
 
-        low_quality_slides = identify_low_quality_slides(text_content, image_content)        
+        low_quality_slides = identify_low_quality_slides(text_content, image_content) 
+        st.write(low_quality_slides)  
+        
         slide_data = extract_titles_from_images(title)
         
         if image_content:
@@ -853,10 +964,8 @@ def main():
             pa = generate_prompt(overall_theme)
             # Generate insights via LLM
 
-            text_insights = generate_text_insights(text_content, text_length, overall_theme, low_quality_slides, slide_data, pa)  
-                
+            text_insights = generate_text_insights(text_content, text_length, overall_theme, low_quality_slides, slide_data, pa)                  
             insights = generate_image_insights(image_content, text_length, low_quality_slides, overall_theme, pa, slide_data)
-            
             extracted_images = extract_images_from_pdf("uploaded_pdf.pdf", top_mask, bottom_mask, left_mask, right_mask, low_quality_slides) 
                             
             aggregated_content = aggregate_content(text_insights, insights, slide_data)
