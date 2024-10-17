@@ -205,47 +205,31 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
                     Figure Detection:
                     ~~/ Identify and list all figures (diagrams, sketches, flowcharts) on the slide. Each figure, even if stacked or side by side, should be treated as separate.
                         If the figure on the slide has multiple individual parts that are connected as one overall figure, treat all these parts as a single figure and reference it using the slide number.
+                        Note: If the figure number is already mentioned on the slide, ignore it and instead use "{slide_number}" as the figure number.
                         
-                    ``` When Figures Are Present:
-                            If a slide contains only figures, use the slide title to guide your description by following these steps:
-                                Reference Each Figure Individually in Order:
-                                    Begin by mentioning each figure sequentially.
-                                    Use the format: "Referring to Figure {slide_number}(a), Figure {slide_number}(b), ...".
-                                    If the slide already specifies figure numbers, use "{slide_number}" as the figure number.
-                                Describe Each Figure in Detail:
-                                    Provide a clear and specific explanation for each figure.
-                                    Use the format: "Figure {slide_number}(a) illustrates...", "Figure {slide_number}(b) shows...".
-                                    Explain the role and relevance of each figure thoroughly.
-                                Flag Any Issues:
-                                    Check for missing figures or improper combinations (e.g., using "the figures" instead of individual references).
-                                    Ensure figures are not improperly combined or omitted.
-                                Explain Relationships Between Figures:
-                                    For complex or overlapping figures, clearly describe how they relate to each other.
-                                    Example: "Figure {slide_number}(a) interacts with Figure {slide_number}(b) by...".
-                                Proceed with a Detailed Explanation:
-                                    After referencing and describing the figures, begin the next sentence with "In this aspect..." to provide a comprehensive explanation.
-                                Specific Instructions Based on Figure Type:
-                                    For Graphs:
-                                        Describe the x-axis and y-axis.
-                                        Explain the overall meaning and significance of the graph.
-                                    For Images:
-                                        Identify angles, depth, and spatial relationships, especially for images with perspective views.
-                                        Refer to images specifically by their figure number (avoid using terms like "left" or "right" figure).
-                                Ensure a Natural Flow:
-                                    Avoid phrases like "The slide shows..." or "The image presents...".
-                                    Strive for a seamless and engaging narrative throughout your description.
-                        
-                        When No Figures Are Found:
-                            If the slide contains no figures, tailor your approach based on the slide title:
-                                For Titles Without "prior", "Background" or "Proposal":
-                                    Start with "Aspects of the present disclosure include...".
-                                    Focus on elucidating the main points and key aspects of the content.
-                                For Titles Including "Invention", "Proposed" or "Proposal":
-                                    Start with "The present disclosure includes...".
-                                    Center your description on the specific details of the invention or proposal.
-                                For Titles Including "Background" or "Motivation":
-                                    Start with "The prior solutions include...".
-                                    Concentrate on discussing existing solutions and contextual background information.``` 
+                        If only figures are present, follow these steps based on the slide title:
+                            Mention and reference each figure in order (e.g., "Referring to Figure {slide_number}(a), Figure {slide_number}(b)..."). Clearly explain each figure, covering its role and relevance.
+                            Note: If the figure number is already mentioned on the slide, ignore it and instead use "{slide_number}" as the figure number.
+                            Steps:
+                        ```/ Reference figures in order: "Referring to Figure {slide_number}(a), Figure {slide_number}(b)…" Each figure must be mentioned individually.
+                                Check that figures are referenced in order before any detailed descriptions.
+                                After referencing, describe each figure individually: "Figure {slide_number}(a) illustrates...", "Figure {slide_number}(b) shows..." Explain the figures in detail.
+                                Flag any issues if figures are missing or combined improperly (e.g., "the figures" instead of individual references).
+                                For complex or overlapping figures, explain their relationships clearly, such as "Figure {slide_number}(a) interacts with Figure {slide_number}(b)..."
+                                After Figure Reference:
+                                    Begin the next sentence with: "In this aspect..." followed by a detailed explanation.
+                       
+                                For Graphs:
+                                    Describe the x and y axes and explain the overall meaning.
+                                For Images:
+                                    Identify angles, depth, and spatial relationships for images with perspective views. Refer to images specifically (avoid terms like "left" or "right" figure).
+                                Natural Flow:
+                                    Avoid phrases like "The slide shows..." or "The image presents..." to ensure a natural flow. /```
+                   
+                        If no figures are found, follow these instructions based on the slide title:
+                        ```/ If the title doesn’t contain "Background" or "Proposal": Start with "Aspects of the present disclosure include..." and focus on the main points.
+                            If the title includes "Invention" or "Proposal": Start with "The present disclosure includes..." and focus on the invention or proposal.
+                            If the title includes "Background" or "Motivation": Start with "The prior solutions include..." and focus only on prior solutions. /``` 
 
                     Style Guide:
                     ```/ Use passive voice, except for discussing the present disclosure (use active voice like "provides").
@@ -656,8 +640,8 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images,
             doc.add_paragraph("\n")  # Add space after image
 
     # Add the theme at the end of the document
-    doc.add_heading("Overall Theme", level=1)
-    doc.add_paragraph(theme)
+    # doc.add_heading("Overall Theme", level=1)
+    # doc.add_paragraph(theme)
 
     output = BytesIO()
     doc.save(output)
