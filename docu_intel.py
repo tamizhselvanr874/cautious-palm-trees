@@ -199,8 +199,8 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
                     #                 Concentrate on discussing existing solutions and contextual background information.``` 
                             
         prompt = f"""{pa}
-                    Important Note: Avoid using words like 'contain', 'necessity,' 'necessary,' 'necessitate,' 'contain' , 'contains' , 'consist,' 'explore,' 'key component,' 'revolutionizing,' 'innovative,' or similar terms. Use alternatives instead. Return the content in one paragraph only.
-                    Important Note: Avoid expanding abbreviations unless instructed in the given slide. Only expand abbreviations once.
+                ``` Important Note: Avoid using words like 'contain', 'necessity', 'necessary', 'necessitate', 'contain' , 'contains' , 'consist,' 'explore' , 'key component' , 'revolutionizing',  'innovative' , or similar terms. Use alternatives instead. Return the content in one paragraph only.
+                    Important Note: Avoid expanding abbreviations unless instructed in the given slide. Only expand abbreviations once. ```
 
                     Figure Detection:
                     ~~/ Identify and list all figures (diagrams, sketches, flowcharts) on the slide. Each figure, even if stacked or side by side, should be treated as separate.
@@ -225,12 +225,15 @@ def generate_image_insights(image_content, text_length, low_quality_slides, over
                                     Identify angles, depth, and spatial relationships for images with perspective views. Refer to images specifically (avoid terms like "left" or "right" figure).
                                 Natural Flow:
                                     Avoid phrases like "The slide shows..." or "The image presents..." to ensure a natural flow. /```
-                   
+                        
+                Check for Unintended Phrases:
+                    Before finalizing, ensure that the phrase “Reference to figure” does not appear at the beginning of the content unless it is intentional.
+
                         If no figures are found, follow these instructions based on the slide title:
                         ```/ If the title doesn’t contain "Background" or "Proposal": Start with "Aspects of the present disclosure include..." and focus on the main points.
                             If the title includes "Invention" or "Proposal": Start with "The present disclosure includes..." and focus on the invention or proposal.
                             If the title includes "Background" or "Motivation": Start with "The prior solutions include..." and focus only on prior solutions. /``` 
-
+                                                
                     Style Guide:
                     ```/ Use passive voice, except for discussing the present disclosure (use active voice like "provides").
                         Replace "Million" and "Billion" with "1,000,000" and "1,000,000,000."
@@ -460,7 +463,6 @@ def detect_images_from_pdf(pdf_path):
 
         if len(significant_contours) > 0.5:
             image_content.append({"slide_number": page_num + 1, "image": img_np})
-            # st.write(page_num + 1)  
     
     return image_content
 
@@ -1001,7 +1003,6 @@ def main():
         image_content = detect_images_from_pdf("uploaded_pdf.pdf")
 
         low_quality_slides = identify_low_quality_slides(text_content, image_content) 
-        # st.write(low_quality_slides)  
         
         slide_data = extract_titles_from_images(title)
         
