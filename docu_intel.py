@@ -950,8 +950,12 @@ def main():
     uploaded_ppt = st.file_uploader("Upload a PPT file", type=["pptx"]) 
         
     # Select text length
-    text_length = st.selectbox("Select Text Length", ["Standard", "Blend", "Creative"])
-
+    text_length = st.select_slider(  
+        "Select creativity level",  
+        options=["Standard", "Blend", "Creative"],  
+        value="Blend"  
+    )
+    
     if st.button("Start Generate"):
         # Extract the base name of the uploaded PPT file  
         ppt_filename = uploaded_ppt.name  
