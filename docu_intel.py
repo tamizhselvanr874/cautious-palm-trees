@@ -298,7 +298,7 @@ def extract_titles_from_images(image_content):
 
 # Function to generate insights for images via LLM
 def generate_image_insights(
-    image_content, text_length, low_quality_slides, overall_theme, pa, slide_data
+    image_content, text_length, low_quality_slides, system_prompt, slide_data
 ):
     insights = []
 
@@ -334,55 +334,7 @@ def generate_image_insights(
 
         headers = {"Content-Type": "application/json", "api-key": api_key}
 
-        # Overall Content for your Understanding : {overall_theme}\n Use the Overall Content as reference
-        # Remove all listed profanity words. Example for your reference: {patent_profanity_words}.
-
-        # Figure Detection:
-        # ~~/ Identify and list all figures (diagrams, sketches, flowcharts) on the slide. Each figure, even if stacked or side by side, should be treated as separate.
-        #     If the figure on the slide has multiple individual parts that are connected as one overall figure, treat all these parts as a single figure and reference it using the slide number.
-
-        # ``` When Figures Are Present:
-        #         If a slide contains only figures, use the slide title to guide your description by following these steps:
-        #             Reference Each Figure Individually in Order:
-        #                 Begin by mentioning each figure sequentially.
-        #                 Use the format: "Referring to Figure {slide_number}(a), Figure {slide_number}(b), ...".
-        #                 If the slide already specifies figure numbers, use "{slide_number}" as the figure number.
-        #             Describe Each Figure in Detail:
-        #                 Provide a clear and specific explanation for each figure.
-        #                 Use the format: "Figure {slide_number}(a) illustrates...", "Figure {slide_number}(b) shows...".
-        #                 Explain the role and relevance of each figure thoroughly.
-        #             Flag Any Issues:
-        #                 Check for missing figures or improper combinations (e.g., using "the figures" instead of individual references).
-        #                 Ensure figures are not improperly combined or omitted.
-        #             Explain Relationships Between Figures:
-        #                 For complex or overlapping figures, clearly describe how they relate to each other.
-        #                 Example: "Figure {slide_number}(a) interacts with Figure {slide_number}(b) by...".
-        #             Proceed with a Detailed Explanation:
-        #                 After referencing and describing the figures, begin the next sentence with "In this aspect..." to provide a comprehensive explanation.
-        #             Specific Instructions Based on Figure Type:
-        #                 For Graphs:
-        #                     Describe the x-axis and y-axis.
-        #                     Explain the overall meaning and significance of the graph.
-        #                 For Images:
-        #                     Identify angles, depth, and spatial relationships, especially for images with perspective views.
-        #                     Refer to images specifically by their figure number (avoid using terms like "left" or "right" figure).
-        #             Ensure a Natural Flow:
-        #                 Avoid phrases like "The slide shows..." or "The image presents...".
-        #                 Strive for a seamless and engaging narrative throughout your description.
-
-        #     When No Figures Are Found:
-        #         If the slide contains no figures, tailor your approach based on the slide title:
-        #             For Titles Without "prior", "Background" or "Proposal":
-        #                 Start with "Aspects of the present disclosure include...".
-        #                 Focus on elucidating the main points and key aspects of the content.
-        #             For Titles Including "Invention", "Proposed" or "Proposal":
-        #                 Start with "The present disclosure includes...".
-        #                 Center your description on the specific details of the invention or proposal.
-        #             For Titles Including "Background" or "Motivation":
-        #                 Start with "The prior solutions include...".
-        #                 Concentrate on discussing existing solutions and contextual background information.```
-
-        prompt = f"""{pa}
+        prompt = f"""{system_prompt}
                 ``` Important Note: Avoid using words like 'contain', 'necessity', 'necessary', 'necessitate', 'contain' , 'contains' , 'consist,' 'explore' , 'key component' , 'revolutionizing',  'innovative' , or similar terms. Use alternatives instead. Return the content in one paragraph only.
                     Important Note: Avoid expanding abbreviations unless instructed in the given slide. Only expand abbreviations once. ```
 
@@ -410,11 +362,11 @@ def generate_image_insights(
                                 Natural Flow:
                                     Avoid phrases like "The slide shows..." or "The image presents..." to ensure a natural flow. /```
                         
-                Check for Unintended Phrases:
-                    Before finalizing, ensure that the phrase “Reference to figure” does not appear at the beginning of the content unless it is intentional.
+                        Check for Unintended Phrases:
+                            Before finalizing, ensure that the phrase “Reference to figure” does not appear at the beginning of the content unless it is intentional.
 
                         If no figures are found, follow these instructions based on the slide title:
-                        ```/ If the title doesn’t contain "Background" or "Proposal": Start with "Aspects of the present disclosure include..." and focus on the main points.
+                        ```/If the title doesn’t contain "Background" or "Proposal": Start with "Aspects of the present disclosure include..." and focus on the main points.
                             If the title includes "Invention" or "Proposal": Start with "The present disclosure includes..." and focus on the invention or proposal.
                             If the title includes "Background" or "Motivation": Start with "The prior solutions include..." and focus only on prior solutions. /``` 
                                                 
@@ -430,7 +382,7 @@ def generate_image_insights(
             "messages": [
                 {
                     "role": "system",
-                    "content": f"""  {pa}\n\n 
+                    "content": f"""  {system_prompt}\n\n 
                                                     Your task is to generate content based on the provided slide while adhering to the following instructions: 
                                                     {prompt} """,
                 },
@@ -475,82 +427,77 @@ def generate_image_insights(
     return insights
 
 
-def continued_title_check(slide_data, low_quality_slides):
+def continued_title_check(slide_data):
     continued = []
-    pa = "You are tasked with identifying slides that share the same title. Once you detect identical titles across slides, check if any of these titles are followed by '(continued...)'. If a slide with the same title includes '(continued...)', return all the slides with the identical title, including those marked with '(continued...)' and those without. Ensure that slides are grouped appropriately based on title similarity and the presence of '(continued...)'. "
+    system_prompt = "You are tasked with identifying slides that share the same title. Once you detect identical titles across slides, check if any of these titles are followed by '(continued...)'. If a slide with the same title includes '(continued...)', return all the slides with the identical title, including those marked with '(continued...)' and those without. Ensure that slides are grouped appropriately based on title similarity and the presence of '(continued...)'. "
 
     t_value = []
     for sl in slide_data:
         slide_number = sl["slide_number"]
         title = sl['title']
-        t_value.append(f"{slide_number} : {title}")
-    
-    for sl in slide_data:
-        slide_number = sl["slide_number"]
-        title = sl['title']
-        # if slide_number in low_quality_slides:
+        t_value.append(f"{slide_number} : {title}")        # if slide_number in low_quality_slides:
         #     continue  #
 
         # for image_data in image_content:
         #     slide_number = image_data['slide_number']
         #     base64_image = encode_image(image_data['image'])
 
-        headers = {"Content-Type": "application/json", "api-key": api_key}
+    headers = {"Content-Type": "application/json", "api-key": api_key}
 
-        # Overall Content for your Understanding : {overall_theme}\n Use the Overall Content as reference
-        # Remove all listed profanity words. Example for your reference: {patent_profanity_words}.
-        
-        prompt = f""" 
-        Check for slides with identical titles. If multiple slides share the same title, verify if any of these slides have the same title followed by '(continued...)'. If any of the identical titled slides include '(continued...)', return all slides with that title, both with and without '(continued...)' in the title.        
-        Note: To qualify as identical titles, at least one of the titles must include "Continued...". If "Continued..." is not present in any of the titles, they should not be considered identical, and the response should be: "No".
-        Note: In some slide decks, multiple slides may share identical titles. Identify such groups and format the output as shown below:
-        Example output format for more than one identical titled slides Matched [Only return Output like this]: Yes, [3,4,5],[6, 7, 8],[9, 11, 12, 13],...
-        Slide Data: {slide_data}
-        Example output format for identical titled slides Matched [Only return Output like this]: Yes, [3,4,5]
-        Example output format for No identical titled slides Matched [Only return Output like this]: No
-        """
+    # Overall Content for your Understanding : {overall_theme}\n Use the Overall Content as reference
+    # Remove all listed profanity words. Example for your reference: {patent_profanity_words}.
 
-        data = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": f"{pa}"},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.3,
-            "max_tokens": 70,
-        }
+    prompt = f""" 
+    Check for slides with identical titles. If multiple slides share the same title, verify if any of these slides have the same title followed by '(Continued...)'. If any of the identical titled slides include '(Continued...)', return all slides with that title, both with and without '(Continued...)' in the title.        
+    Note: To qualify as identical titles, at least one of the titles must include "Continued...". If "Continued..." is not present in any of the titles, they should not be considered identical, and the response should be: "No".
+    Slide Data: {t_value}
+    Example output format for identical titled slides Matched [Only return Output like this]: Yes, [3,4,5]
+    Example output format for No identical titled slides Matched [Only return Output like this]: No
+    Example output format for more than one identical titled slides Matched [Only return Output like this]: Yes, [3,4,5],[6, 7, 8],[9, 11, 12, 13],...
+    """
 
-        try:
-            response = requests.post(
-                f"{azure_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
-                headers=headers,
-                json=data,
-            )
+    data = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": f"{system_prompt}"},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0,
+        "max_tokens": 100,
+    }
 
-            response_data = response.json()  # Convert the response to JSON
+    try:
+        response = requests.post(
+            f"{azure_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
+            headers=headers,
+            json=data,
+        )
 
-            # Check if 'choices' key is in the response
-            if "choices" in response_data:
-                sp = response_data["choices"][0]["message"][
-                    "content"
-                ]  # Access the message content
-                # st.sidebar.write(sp)
-                sp = sp.split("Yes,", 1)[1].strip()
-                # st.sidebar.write(sp)
+        response_data = response.json()  # Convert the response to JSON
 
-                if sp:  # Check if the response contains "Yes"
-                    continued.append({"set_of_slides": sp})
-            else:
-                st.sidebar.write("Error: 'choices' key not found in the response.")
+        # Check if 'choices' key is in the response
+        if "choices" in response_data:
+            sp = response_data["choices"][0]["message"][
+                "content"
+            ]  # Access the message content
+            # st.sidebar.write(sp)
+            sp = sp.split("Yes,", 1)[1].strip()
+            # st.sidebar.write(sp)
 
-        except Exception as e:
-            print(f"Error: {str(e)}")
+            if sp:  # Check if the response contains "Yes"
+                continued.append({"set_of_slides": sp})
+        else:
+            st.sidebar.write("Error: 'choices' key not found in the response.")
+
+    except Exception as e:
+        # Developer's error handling in console
+        print(f"Error: {str(e)}")
 
     return continued
 
 
 def generate_text_insights(
-    text_content, text_length, theme, low_quality_slides, slide_data, pa
+    text_content, text_length, low_quality_slides, slide_data, system_prompt
 ):
     headers = {"Content-Type": "application/json", "api-key": api_key}
     insights = []
@@ -578,7 +525,7 @@ def generate_text_insights(
         )
         slide_text = slide["text"]
 
-        prompt = f"""{pa}\n
+        prompt = f"""{system_prompt}\n
         \\\\
         Important Note: Avoid using words like 'contain', 'necessity,' 'necessary,' 'necessitate,' 'contain' , 'contains' , 'consist,' 'explore,' 'key component,' 'revolutionizing,' 'innovative,' or similar terms. Use alternatives instead. Return the content in one paragraph only.
         Important Note: Avoid expanding abbreviations unless instructed in the given slide. Only expand abbreviations once.
@@ -632,7 +579,7 @@ def generate_text_insights(
         data = {
             "model": model,
             "messages": [
-                {"role": "system", "content": f"{pa}"},
+                {"role": "system", "content": f"{system_prompt}"},
                 {"role": "user", "content": prompt},
             ],
             "temperature": temperature,
@@ -669,7 +616,6 @@ def generate_text_insights(
                 }
             )
 
-    print(insights)
     return insights
 
 
@@ -704,8 +650,8 @@ def generate_prompt(overall_theme):
         return "You are a Patent Attorney specializing in generating content based on the document content"
 
 
-# Function to detect images, flowcharts, and diagrams from the PDF
-def detect_title_from_pdf(pdf_path):
+# Function to detect images, flowcharts, and diagrams from the PDF focused to Title
+def extract_slide_images_for_title_extraction(pdf_path):
     doc = fitz.open(pdf_path)
     image_content = []
 
@@ -801,253 +747,191 @@ def extract_text_and_titles_from_pdf(pdf_path):
 import ast
 
 def generate_continue_insights(
-    image_content,
     text_length,
     continued_check,
     image_slides,
     text_content,
-    pa,
     slide_data,
 ):
     insights = []
-
-    # Debugging line: Check the structure of continued_check
-    print(f"Type of continued_check: {type(continued_check)}, Value: {continued_check}")
 
     # Set temperature based on text length
     temperature = (
         0.0 if text_length == "Standard" else 0.5 if text_length == "Blend" else 0.7
     )
 
-    # Group slides based on continued_check and combined images for LLM input
-    grouped_slides = []
-    combined_title = None 
-    combined_images = []
-    combined_text = []
+    # Process each continued_check dictionary entry for multiple slide sets
+    for check_entry in continued_check:
+        if isinstance(check_entry, dict):
+            # Parse the "set_of_slides" string and ensure it is a list of lists
+            continued_slide_sets = ast.literal_eval(check_entry.get("set_of_slides", ""))
 
-    # Extract and parse continued_slide_sets if it's a list of dictionaries
-    if isinstance(continued_check, list) and isinstance(continued_check[0], dict):
-        # Split string on "], [" to separate each set of slides
-        continued_slide_sets_str = continued_check[1].get("set_of_slides", "")
-        slide_sets = continued_slide_sets_str.split("], [")
-        
-        # Remove extra brackets and convert each set string to a list of integers
-        continued_slide_sets = [
-            ast.literal_eval(f"[{slide_set.strip('[]')}]") for slide_set in slide_sets
-        ]
+            # If the result is a single list (e.g., [2, 3]), wrap it in another list
+            if isinstance(continued_slide_sets[0], int):
+                continued_slide_sets = [continued_slide_sets]
 
-    else:
-        raise ValueError(
-            "continued_check must be a list of dictionaries with 'set_of_slides' key."
-        )
+            # Process each slide set individually
+            for continued_slide_numbers in continued_slide_sets:
+                combined_title = None
+                combined_images = []
+                combined_text = []
 
-    # Process each set of slides individually
-    for continued_slide_numbers in continued_slide_sets:
-        # Initialize for each set
-        combined_title = None
-        combined_images = []
-        combined_text = []
+                # Combine images and text for the current slide set
+                for image_data in image_slides:
+                    slide_number = image_data["slide_number"]
+                    if slide_number in continued_slide_numbers:
+                        slide_number_img = slide_number
+                        combined_images.append(image_data)
+                        if combined_title is None:
+                            combined_title = (
+                                next(
+                                    (
+                                        slide["title"]
+                                        for slide in slide_data
+                                        if slide["slide_number"] == slide_number_img
+                                    ),
+                                    "Untitled Slide",
+                                )
+                                .replace("(Continued)", "")
+                                .strip()
+                            )
 
-        # Loop through image content to combine slides
-        for image_data in image_slides:
-            slide_number = image_data["slide_number"]
-            if slide_number in continued_slide_numbers:
-                slide_number_img = slide_number
-                # st.warning(slide_number_img)
-                combined_images.append(image_data)
-                if combined_title is None:
-                    # Get the title from the first slide and strip "(Continued)"
-                    combined_title = (
-                        next(
-                            (
-                                slide["title"]
-                                for slide in slide_data
-                                if slide["slide_number"] == slide_number_img
-                            ),
-                            "Untitled Slide",
-                        )
-                        .replace("(Continued)", "")
-                        .strip()
-                    )
+                for text_data in text_content:
+                    slide_number = text_data["slide_number"]
+                    if slide_number in continued_slide_numbers:
+                        combined_text.append(text_data)
+                        if combined_title is None:
+                            combined_title = (
+                                next(
+                                    (
+                                        slide["title"]
+                                        for slide in slide_data
+                                        if slide["slide_number"] == slide_number
+                                    ),
+                                    "Untitled Slide",
+                                )
+                                .replace("(Continued)", "")
+                                .strip()
+                            )
 
-        # Loop through text content to combine text for each set
-        for text_data in text_content:
-            slide_number = text_data["slide_number"]
-            if slide_number in continued_slide_numbers:
-                combined_text.append(text_data)
-                if combined_title is None:
-                    # Get the title from the first slide and strip "(Continued)"
-                    combined_title = (
-                        next(
-                            (
-                                slide["title"]
-                                for slide in slide_data
-                                if slide["slide_number"] == slide_number
-                            ),
-                            "Untitled Slide",
-                        )
-                        .replace("(Continued)", "")
-                        .strip()
-                    )
-
-        if combined_images and combined_title and combined_text:
-            base64_images = [encode_image(img["image"]) for img in combined_images]
-
-            # Combine slide numbers for reference, e.g., "6,7" or "8,9,10"
-            combined_slide_ref = ",".join(map(str, continued_slide_numbers))
-
-                    # Refer to the following text to provide a detailed explanation of the mentioned figures or images or diagrams or graphs or charts: `````{combined_text}`````\n\n
-                    # Ensure that none of the above-mentioned text content is omitted when explaining the figures; all content must be fully presented in the final outcome.
-                    # Additionally, include information from the figures, images, diagrams, graphs, and charts alongside the text content in the final output. If these visuals contain additional information, make sure to add it to the final output as well.
-                    # If the figure is a sketch, provide an explanation with an appropriate title, such as "User." Focus on the operational flow of the figure to explain its working process in detail. If the sketch includes a legend, use the terms from the legend in your explanation to maintain consistency.
-                    # Mention any labels, legends, or additional information included in the visuals.
-                    # After referencing the figures, provide detailed explanations of each, including their roles and relevance. 
-                    # Incorporate any additional information from the visuals that is not mentioned in the text.
-
-                    # Explaining Visual Elements:
-                    # For diagrams or sketches, focus on the operational flow and explain the working process in detail.
-                    # Use terms from legends or labels in the visuals to maintain consistency.
-                    # For graphs, describe the x and y axes and explain the overall meaning.
-                    # For images with perspective views, identify angles, depth, and spatial relationships without using directional terms like "left" or "right."                    
-
-
-                    # Your explanation should:
-
-                    # Include all text content: Ensure that every detail from the text is fully presented in your explanation.
-                    # Identify and describe all elements in sketches, drawings, and images: Carefully recognize and explain each component in the sketches, drawings, or images, including any labels, legends, and annotations.
-                    # Focus on the operational flow: Provide a detailed explanation of the working process depicted in the sketches, drawings, or diagrams, describing how each element interacts within the system.
-                    # Use exact terms from labels and legends: Maintain consistency by using the precise terms provided in the figures' labels or legends, without referencing phrases like "labelled parts" or "as indicated by the legend".
-                    # Supplement with additional visual details: Incorporate any extra information from the visuals that isn't explicitly mentioned in the text.
-                    # Begin with text content, then expand with visual details: Start your explanation with the information from the text, then enhance it by adding detailed descriptions of the visuals.
-                    # Describe spatial relationships without directional terms: When explaining spatial aspects in images or diagrams, focus on angles, depth, and interactions without using directional words like "left" or "right".
-                    # Explain roles and relevance: Discuss the significance of each element and how it contributes to the overall process or concept being described.
-
-
-                    # Please provide a comprehensive explanation of all figures (including diagrams, drawings, and sketches) mentioned in the following text:                        
-                    # Refer to the following text to provide a detailed explanation of the mentioned figures or images or diagrams or graphs or charts: `````{combined_text }`````\n\n
-                    #     Your explanation should:
-                    #     Include all text content: Ensure that every detail from the text is fully presented in your explanation.
-                    #     Identify and describe all elements in the figures: Carefully recognize and explain each component in the figures, including any labels, legends, and annotations.
-                    #     Focus on the operational flow: Provide a detailed explanation of the working process depicted in the figures, describing how each element interacts within the system.
-                    #     Use exact terms from labels and legends: Maintain consistency by using the precise terms provided in the figures' labels or legends, without referencing phrases like "labelled parts" or "as indicated by the legend".
-                    #     Supplement with additional details from the figures: Incorporate any extra information from the figures that isn't explicitly mentioned in the text.
-                    #     Begin with text content, then expand with figure details: Start your explanation with the information from the text, then enhance it by adding detailed descriptions of the figures.
-                    #     Describe spatial relationships without directional terms: When explaining spatial aspects in the figures, focus on angles, depth, and interactions without using directional words like "left" or "right".
-                    #     Explain roles and relevance: Discuss the significance of each element and how it contributes to the overall process or concept being described.
-
-            print(combined_text)
-            # st.error(slide_number_img)
-            prompt =f"""Objective:
-                            Generate a detailed paragraph based on the provided slides, integrating both textual content and visual elements seamlessly. 
-                            The response should prioritize the text content and use it explain the figures or images or diagrams or graphs or charts or equations. 
-                            Ensure the explanations are well-structured and focused on integrating the textual information along with the figures or images or diagrams or graphs or charts or equations content.
-                            
-                        Slide Information:
-                            Slide Reference: {slide_number_img}
-                            Title: sketchs
-
-                    Please provide a comprehensive explanation of all figures (including diagrams, drawings, and sketches) mentioned in the following text:                        
-                    Refer to the following text to provide a detailed explanation of the mentioned figures or images or diagrams or graphs or charts: `````{combined_text }`````\n\n
-                    Your explanation should:
-                    Include all text content: Ensure that every detail from the text is fully presented in your explanation.
-                    Identify and describe all elements in the figures: Carefully recognize and explain each component in the figures, including any labels, legends, and annotations.
-                    Focus on the operational flow: Provide a detailed explanation of the working process depicted in the figures, describing how each element interacts within the system.
-                    Use exact terms from labels and legends: Maintain consistency by using the precise terms provided in the figures' labels or legends, without referencing phrases like "labelled parts" or "as indicated by the legend".
-                    Supplement with additional details from the figures: Incorporate any extra information from the figures that isn't explicitly mentioned in the text.
-                    Describe spatial relationships without directional terms: When explaining spatial aspects in the figures, focus on angles, depth, and interactions without using directional words like "left" or "right".
-                    Explain roles and relevance: Discuss the significance of each element and how it contributes to the overall process or concept being described.
-                                                                    
-                    ```/Important Note: Avoid using words like 'contain', 'necessity', 'necessary', 'necessitate', 'contain' , 'contains' , 'consist,' 'explore' , 'key component' , 'revolutionizing',  'innovative' , or similar terms. Use alternatives instead. Return the content in one paragraph only.
-                        Important Note: Avoid expanding abbreviations unless instructed in the given slide. Only expand abbreviations once. /```
-
-                        Figure Detection:
-                        ~~/ Identify and list all figures (diagrams, sketches, flowcharts) on the slide. Each figure, even if stacked or side by side, should be treated as separate.
-                            If the figure on the slide has multiple individual parts that are connected as one overall figure, treat all these parts as a single figure and reference it using the slide number.
-                            Note: If the figure number is already mentioned on the slide, ignore it and instead use "{slide_number_img}" as the figure number.
-                            
-                        Mention and reference each figure in order (e.g., "Referring to Figure {slide_number_img}(a), Figure {slide_number_img}(b)..."). Clearly explain each figure, covering its role and relevance.
-                        Note: If the figure number is already mentioned on the slide, ignore it and instead use "{slide_number_img}" as the figure number.
-                        Steps:
-                    ```/ Reference figures in order: "Referring to Figure {slide_number_img}(a), Figure {slide_number_img}(b)…" Each figure must be mentioned individually.
-                            Check that figures are referenced in order before any detailed descriptions.
-                            After referencing, describe each figure individually: "Figure {slide_number_img}(a) illustrates...", "Figure {slide_number_img}(b) shows..." Explain the figures in detail.
-                            Flag any issues if figures are missing or combined improperly (e.g., "the figures" instead of individual references).
-                            For complex or overlapping figures, explain their relationships clearly, such as "Figure {slide_number_img}(a) interacts with Figure {slide_number}(b)..."
-                            After Figure Reference:
-                                Begin the next sentence with: "In this aspect..." followed by a detailed explanation.      
-                            For Graphs:
-                                Describe the x and y axes and explain the overall meaning.
-                            For Images:
-                                Identify angles, depth, and spatial relationships for images with perspective views. Refer to images specifically (avoid terms like "left" or "right" figure).
-                            Natural Flow:
-                                Avoid phrases like "The slide shows..." or "The image presents..." to ensure a natural flow. /```
+                if combined_images and combined_title and combined_text:
+                    base64_images = [encode_image(img["image"]) for img in combined_images]
+                    combined_slide_ref = ",".join(map(str, continued_slide_numbers))
                     
-            Check for Unintended Phrases:
-                Before finalizing, ensure that the phrase “Reference to figure” does not appear at the beginning of the content unless it is intentional.
-                                            
-                Style Guide:
-                ```/ Use passive voice, except for discussing the present disclosure (use active voice like "provides").
-                    Replace "Million" and "Billion" with "1,000,000" and "1,000,000,000."
-                    Avoid using "invention" or "objective," replace with "present disclosure."
-                    Use technical terms and Avoid expanding abbreviations unless instructed. Only expand abbreviations once.
-                    Turn bullet points into sentences without summarizing them. /```
-Slide:
-            """
+                    # st.error(slide_number_img)
+                    prompt =f"""Objective:
+                                    Generate a detailed paragraph based on the provided slides, integrating both textual content and visual elements seamlessly. 
+                                    The response should prioritize the text content and use it explain the figures or images or diagrams or graphs or charts or equations. 
+                                    Ensure the explanations are well-structured and focused on integrating the textual information along with the figures or images or diagrams or graphs or charts or equations content.
+                                    
+                                Slide Information:
+                                    Slide Reference: {slide_number_img}
+                                    Title: sketchs
 
-            # Add images as individual message components
-            for img_b64 in base64_images:
-                print(
-                    "-----------------------------------------------------------------------------------------------------------------"
-                )
-            #     messages.append({"role": "user", "content": {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}})
+                            Please provide a comprehensive explanation of all figures (including diagrams, drawings, and sketches) mentioned in the following text:                        
+                            Refer to the following text to provide a detailed explanation of the mentioned figures or images or diagrams or graphs or charts: `````{combined_text }`````\n\n
+                            Your explanation should:
+                            Include all text content: Ensure that every detail from the text is fully presented in your explanation.
+                            Identify and describe all elements in the figures: Carefully recognize and explain each component in the figures, including any labels, legends, and annotations.
+                            Focus on the operational flow: Provide a detailed explanation of the working process depicted in the figures, describing how each element interacts within the system.
+                            Use exact terms from labels and legends: Maintain consistency by using the precise terms provided in the figures' labels or legends, without referencing phrases like "labelled parts" or "as indicated by the legend".
+                            Supplement with additional details from the figures: Incorporate any extra information from the figures that isn't explicitly mentioned in the text.
+                            Describe spatial relationships without directional terms: When explaining spatial aspects in the figures, focus on angles, depth, and interactions without using directional words like "left" or "right".
+                            Explain roles and relevance: Discuss the significance of each element and how it contributes to the overall process or concept being described.
+                                                                            
+                            ```/Important Note: Avoid using words like 'contain', 'necessity', 'necessary', 'necessitate', 'contain' , 'contains' , 'consist,' 'explore' , 'key component' , 'revolutionizing',  'innovative' , or similar terms. Use alternatives instead. Return the content in one paragraph only.
+                                Important Note: Avoid expanding abbreviations unless instructed in the given slide. Only expand abbreviations once. /```
 
-            data = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": f"You are an AI assistant that helps people find information."},
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
+                                Figure Detection:
+                                ~~/ Identify and list all figures (diagrams, sketches, flowcharts) on the slide. Each figure, even if stacked or side by side, should be treated as separate.
+                                    If the figure on the slide has multiple individual parts that are connected as one overall figure, treat all these parts as a single figure and reference it using the slide number.
+                                    Note: If the figure number is already mentioned on the slide, ignore it and instead use "{slide_number_img}" as the figure number.
+                                    
+                                Mention and reference each figure in order (e.g., "Referring to Figure {slide_number_img}(a), Figure {slide_number_img}(b)..."). Clearly explain each figure, covering its role and relevance.
+                                Note: If the figure number is already mentioned on the slide, ignore it and instead use "{slide_number_img}" as the figure number.
+                                Steps:
+                            ```/ Reference figures in order: "Referring to Figure {slide_number_img}(a), Figure {slide_number_img}(b)…" Each figure must be mentioned individually.
+                                    Check that figures are referenced in order before any detailed descriptions.
+                                    After referencing, describe each figure individually: "Figure {slide_number_img}(a) illustrates...", "Figure {slide_number_img}(b) shows..." Explain the figures in detail.
+                                    Flag any issues if figures are missing or combined improperly (e.g., "the figures" instead of individual references).
+                                    For complex or overlapping figures, explain their relationships clearly, such as "Figure {slide_number_img}(a) interacts with Figure {slide_number}(b)..."
+                                    After Figure Reference:
+                                        Begin the next sentence with: "In this aspect..." followed by a detailed explanation.      
+                                    For Graphs:
+                                        Describe the x and y axes and explain the overall meaning.
+                                    For Images:
+                                        Identify angles, depth, and spatial relationships for images with perspective views. Refer to images specifically (avoid terms like "left" or "right" figure).
+                                    Natural Flow:
+                                        Avoid phrases like "The slide shows..." or "The image presents..." to ensure a natural flow. /```
+                            
+                    Check for Unintended Phrases:
+                        Before finalizing, ensure that the phrase “Reference to figure” does not appear at the beginning of the content unless it is intentional.
+                                                    
+                        Style Guide:
+                        ```/ Use passive voice, except for discussing the present disclosure (use active voice like "provides").
+                            Replace "Million" and "Billion" with "1,000,000" and "1,000,000,000."
+                            Avoid using "invention" or "objective," replace with "present disclosure."
+                            Use technical terms and Avoid expanding abbreviations unless instructed. Only expand abbreviations once.
+                            Turn bullet points into sentences without summarizing them. /```
+        Slide:
+                    """
+
+                    # Add images as individual message components
+                    # messages = []
+                    for img_b64 in base64_images:
+                        print(
+                        "-----------------------------------------------------------------------------------------------------------------"
+                        )
+
+                        # messages.append({"role": "user", "content": {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}})
+
+                    data = {
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": f"You are an AI assistant that helps people find information."},
                             {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": prompt},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+                                    },
+                                ],
                             },
                         ],
-                    },
-                ],
-                "temperature": temperature,
-            }
-
-            headers = {"Content-Type": "application/json", "api-key": api_key}
-
-            response = requests.post(
-                f"{azure_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
-                headers=headers,
-                json=data,
-            )
-
-            # response_data = response.json()
-            # sp = response_data['choices'][0]['message']['content']
-            # st.write(sp)
-
-            # Process the response
-            if response.status_code == 200:
-                insights.append(
-                    {
-                        "slide_number": combined_slide_ref,
-                        "slide_title": combined_title,
-                        "insight": response.json()["choices"][0]["message"]["content"],
+                        "temperature": temperature,
                     }
-                )
-            else:
-                insights.append(
-                    {
-                        "slide_number": combined_slide_ref,
-                        "slide_title": combined_title,
-                        "insight": response.json(),
-                    }
-                )
+
+                    headers = {"Content-Type": "application/json", "api-key": api_key}
+
+                    response = requests.post(
+                        f"{azure_endpoint}/openai/deployments/{model}/chat/completions?api-version={api_version}",
+                        headers=headers,
+                        json=data,
+                    )
+
+                    # response_data = response.json()
+                    # sp = response_data['choices'][0]['message']['content']
+                    # st.write(sp)
+
+                    # Process the response
+                    if response.status_code == 200:
+                        insights.append(
+                            {
+                                "slide_number": combined_slide_ref,
+                                "slide_title": combined_title,
+                                "insight": response.json()["choices"][0]["message"]["content"],
+                            }
+                        )
+                    else:
+                        insights.append(
+                            {
+                                "slide_number": combined_slide_ref,
+                                "slide_title": combined_title,
+                                "insight": response.json(),
+                            }
+                        )
 
     return insights
 
@@ -1230,7 +1114,7 @@ def save_content_to_word(aggregated_content, output_file_name, extracted_images,
             doc.add_heading(f"[[{slide_numbers}, {sanitized_title}]]", level=1)
             doc.add_paragraph(f"{slide['insight']}")
         else:
-            print(f"Invalid slide structure: {slide}")
+            st.error(f"Invalid slide structure: {slide}")
             # doc.add_heading(f"[[{slide['slide_numbers']}, {slide['sanitized_title']}]]")
             # doc.add_paragraph(f"{slide['insight']}")
 
@@ -1334,6 +1218,30 @@ def extract_images_from_pdf(
 
     pdf_document.close()
     return page_images
+
+
+# def aggregate_content(text_insights, image_insights, slide_data):
+#     aggregated_content = []
+#     for img in image_insights:
+#         slide_number = img['slide_number']
+#         slide_title = img['slide_title']
+#         image_insight = img['insight']
+
+#     for text in text_insights:
+#         slide_number = text['slide_number']
+#         slide_title = text['slide_title']
+#         text_insight = text['insight']
+
+#     for slide in slide_data:
+#         if image_insight:
+#             content = f"[[{slide_number}, {slide_title}]]{image_insight}"
+#             print("---------------------------------------------------------------------------------------------------------------------------")
+#             print(content)
+#         else:
+#             content = f"[[{slide_number}, {slide_title}]]{text_insight}"
+#         aggregated_content.append(content)
+
+#     return aggregated_content
 
 
 def aggregate_content(text_insights, image_insights, slide_data, continue_insights):
@@ -1698,15 +1606,15 @@ def main():
         text_content = extract_text_from_pdf("uploaded_pdf.pdf")
         # Extract images
 
-        title = detect_title_from_pdf("uploaded_pdf.pdf")
+        title_slide_images = extract_slide_images_for_title_extraction("uploaded_pdf.pdf")
         image_content = detect_images_from_pdf("uploaded_pdf.pdf")
 
         low_quality_slides = identify_low_quality_slides(text_content, image_content)
         # st.write(low_quality_slides)
 
-        slide_data = extract_titles_from_images(title)
+        slide_data = extract_titles_from_images(title_slide_images)
 
-        continued_check = continued_title_check(slide_data, low_quality_slides)
+        continued_check = continued_title_check(slide_data)
         # st.sidebar.write(continued_check)
 
         if image_content:
@@ -1719,35 +1627,32 @@ def main():
             combined_text = extract_text_and_titles_from_pdf("uploaded_pdf.pdf")
             overall_theme = generate_overall_theme(combined_text)
 
-            pa = generate_prompt(overall_theme)
+            system_prompt = generate_prompt(overall_theme)
             # Generate insights via LLM
 
             text_insights = generate_text_insights(
                 text_content,
                 text_length,
-                overall_theme,
                 low_quality_slides,
                 slide_data,
-                pa,
+                system_prompt,
             )
             insights = generate_image_insights(
                 image_content,
                 text_length,
                 low_quality_slides,
-                overall_theme,
-                pa,
+                system_prompt,
                 slide_data,
             )
-
+            
             continue_insights = []
             if continued_check != []: 
+                # st.warning("Inside")
                 continue_insights = generate_continue_insights(
-                    title,
                     text_length,
                     continued_check,
                     image_content,
                     text_content,
-                    pa,
                     slide_data,
                 )
 
