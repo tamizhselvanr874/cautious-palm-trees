@@ -1,5 +1,3 @@
-# Final Version (Included Backoff and Jitter & Cleaned Code) - Final
-
 import os
 import re
 import streamlit as st
