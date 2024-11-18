@@ -1646,6 +1646,7 @@ def replace_disallowed_words(text):
         "necessitating": "requiring",
         "contain": "include",
         "critical": "captious",
+        "must": "may",
     }
     for word, replacement in disallowed_words.items():
         text = text.replace(word, replacement)
